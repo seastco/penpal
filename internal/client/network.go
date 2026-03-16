@@ -188,6 +188,22 @@ func (n *Network) Authenticate(ctx context.Context, username, discriminator stri
 	return &authOK, nil
 }
 
+// Recover sends a recovery request with the derived public key and returns the user record.
+func (n *Network) Recover(ctx context.Context, publicKey ed25519.PublicKey) (*protocol.RecoverResponse, error) {
+	resp, err := n.Send(ctx, protocol.MsgRecover, protocol.RecoverRequest{
+		PublicKey: publicKey,
+	})
+	if err != nil {
+		return nil, err
+	}
+	data, _ := json.Marshal(resp.Payload)
+	var result protocol.RecoverResponse
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 // SearchCities searches for cities matching a query.
 func (n *Network) SearchCities(ctx context.Context, query string) ([]protocol.CityResult, error) {
 	resp, err := n.Send(ctx, protocol.MsgSearchCities, protocol.SearchCitiesRequest{

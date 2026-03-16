@@ -12,7 +12,7 @@ Write a letter to a friend in another city and watch it hop across the country �
 - **End-to-end encryption** — NaCl box (XSalsa20-Poly1305) with ed25519 keys derived from a 12-word recovery phrase
 - **3 shipping tiers** — First Class (~700 mi/day), Priority (~1500 mi/day), Express (~2000 mi/day)
 - **City routing** — Dijkstra shortest path on a graph of ~30K US cities, capped at 10 relay hops
-- **Stamp collecting** — earn common, rare, and ultra-rare stamps through registration and weekly rewards
+- **Stamp collecting** — earn common, state, and rare stamps through registration and weekly rewards
 - **TOFU key pinning** — first-contact public keys are cached locally; key changes are flagged as potential MITM
 - **Account recovery** — your 12-word mnemonic *is* your account; re-enter it on any device to restore access
 
@@ -35,8 +35,8 @@ Every user earns stamps through registration and weekly rewards. Stamps come in 
 | Rarity | Examples |
 |---|---|
 | Common | flag, heart, star, quill, blossom, sunflower |
-| Rare | state-specific stamps (e.g. `state:ma`) |
-| Ultra Rare | TBD |
+| State | state-specific stamps (e.g. `state:ma`) |
+| Rare | TBD |
 
 ## Security
 
@@ -51,24 +51,6 @@ Messages are end-to-end encrypted — the server never sees plaintext. See [SECU
 | `PENPAL_CITIES` | `data/graph.json` | Path to precomputed city graph |
 | `PENPAL_SERVER` | `ws://localhost:8282` | Client WebSocket URL |
 | `PENPAL_HOME` | `~/.penpal` | Client config directory |
-
-## Development
-
-```bash
-# Run tests
-go test ./internal/crypto -v              # crypto unit tests
-go test ./internal/routing -v             # routing unit tests
-go test ./internal/client -v              # TUI unit tests
-
-# End-to-end test (requires running server + database)
-go test ./internal/ -v -run TestEndToEnd
-
-# Lint
-go vet ./...
-
-# Rebuild city graph from source data
-go run ./cmd/preprocess -input data/us_cities_continental.json -output data/graph.json
-```
 
 ## License
 

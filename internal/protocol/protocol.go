@@ -32,6 +32,7 @@ const (
 	MsgSearchCities MessageType = "search_cities"
 	MsgGetShipping     MessageType = "get_shipping"
 	MsgUpdateHomeCity  MessageType = "update_home_city"
+	MsgRecover         MessageType = "recover"
 
 	// Server -> Client
 	MsgRegisterOK     MessageType = "register_ok"
@@ -50,6 +51,7 @@ const (
 	MsgCityResults    MessageType = "city_results"
 	MsgShippingInfo      MessageType = "shipping_info"
 	MsgHomeCityUpdated   MessageType = "home_city_updated"
+	MsgRecoverOK         MessageType = "recover_ok"
 
 )
 
@@ -131,6 +133,10 @@ type UpdateHomeCityRequest struct {
 	Lng  float64 `json:"lng"`
 }
 
+type RecoverRequest struct {
+	PublicKey []byte `json:"public_key"`
+}
+
 // --- Response payloads ---
 
 type RegisterResponse struct {
@@ -143,6 +149,10 @@ type AuthChallengeResponse struct {
 }
 
 type AuthOKResponse struct {
+	User models.User `json:"user"`
+}
+
+type RecoverResponse struct {
 	User models.User `json:"user"`
 }
 

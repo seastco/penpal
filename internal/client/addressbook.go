@@ -142,10 +142,19 @@ func (m AddressBookModel) syncViewport() AddressBookModel {
 }
 
 func (m AddressBookModel) View() string {
-	m = m.syncViewport()
 	title := titleStyle.Render("ADDRESS BOOK")
 	header := title + "\n" + divider(contentWidth()) + "\n"
 	header += fmt.Sprintf("\nyour address: %s\n\ncontacts:\n", selectedStyle.Render(m.app.Address()))
+	if len(m.contacts) == 0 {
+		body := mutedStyle.Render("no contacts yet")
+		if m.loading {
+			body = mutedStyle.Render("loading...")
+		} else if m.err != "" {
+			body = errorStyle.Render(m.err)
+		}
+		return emptyScreenView(header, body, "[a] add new  [b] back")
+	}
+	m = m.syncViewport()
 	var footer string
 	if m.confirmDelete && m.cursor < len(m.contacts) {
 		name := m.contacts[m.cursor].Username
@@ -232,14 +241,14 @@ func (m AddContactModel) View() string {
 	content := title + "\n" + divider(contentWidth()) + "\n"
 
 	if m.added != nil {
-		content += fmt.Sprintf("\n  added %s (%s)\n",
+		content += fmt.Sprintf("\nadded %s (%s)\n",
 			selectedStyle.Render(m.added.Username),
 			mutedStyle.Render(m.added.HomeCity))
 		content += "\n" + helpStyle.Render("[enter] done  [n] add another")
 	} else {
-		content += fmt.Sprintf("\n  address: %s\n", m.input.View())
+		content += fmt.Sprintf("\naddress: %s\n", m.input.View())
 		if m.err != "" {
-			content += "\n  " + errorStyle.Render(m.err) + "\n"
+			content += "\n" + errorStyle.Render(m.err) + "\n"
 		}
 		content += "\n" + helpStyle.Render("[enter] add  [ctrl+b] back")
 	}

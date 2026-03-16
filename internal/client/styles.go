@@ -204,6 +204,25 @@ func screenBox() lipgloss.Style {
 		Width(boxWidth())
 }
 
+// screenBoxEmpty returns a box that matches the home screen's height,
+// used for empty-state screens so the box size stays consistent.
+func screenBoxEmpty() lipgloss.Style {
+	return screenBox().Height(13)
+}
+
+// emptyScreenView renders an empty-state screen with footer bottom-aligned.
+func emptyScreenView(header, body, footerText string) string {
+	top := header + body
+	topLines := lipgloss.Height(top)
+	available := 13 - 2 // usable content lines (Height minus top+bottom padding)
+	gap := available - topLines
+	if gap < 1 {
+		gap = 1
+	}
+	content := top + strings.Repeat("\n", gap) + helpStyle.Render(footerText)
+	return screenBoxEmpty().Render(content)
+}
+
 // centeredView places content in the center of the terminal.
 func centeredView(content string) string {
 	return lipgloss.Place(termWidth, termHeight,

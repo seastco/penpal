@@ -149,6 +149,8 @@ func (c *Client) handleMessage(ctx context.Context, env protocol.Envelope) error
 		return c.handleAuth(ctx, env)
 	case protocol.MsgAuthResponse:
 		return c.handleAuthResponse(ctx, env)
+	case protocol.MsgRecover:
+		return c.handleRecover(ctx, env)
 	case protocol.MsgSendLetter:
 		return c.requireAuth(func() error { return c.handleSendLetter(ctx, env) })
 	case protocol.MsgGetInbox:
@@ -295,6 +297,35 @@ func (c *Client) handleAuthResponse(ctx context.Context, env protocol.Envelope) 
 
 	c.sendResponse(env.ReqID, protocol.MsgAuthOK, protocol.AuthOKResponse{
 		User: user,
+	})
+	return nil
+}
+
+func (c *Client) handleRecover(ctx context.Context, env protocol.Envelope) error {
+	data, _ := json.Marshal(env.Payload)
+	var req protocol.RecoverRequest
+	if err := json.Unmarshal(data, &req); err != nil {
+		return fmt.Errorf("invalid recover request: %w", err)
+	}
+
+	if len(req.PublicKey) != ed25519.PublicKeySize {
+		return fmt.Errorf("invalid public key size")
+	}
+
+	user, err := c.server.db.GetUserByPublicKey(ctx, req.PublicKey)
+	if err != nil {
+		return fmt.Errorf("recovery lookup failed: %w", err)
+	}
+	if user == nil {
+		return fmt.Errorf("no account found for this recovery phrase")
+	}
+
+	c.userID = user.ID
+	c.server.hub.Register(c)
+	c.server.db.TouchUserActive(ctx, c.userID)
+
+	c.sendResponse(env.ReqID, protocol.MsgRecoverOK, protocol.RecoverResponse{
+		User: *user,
 	})
 	return nil
 }

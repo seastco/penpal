@@ -159,9 +159,18 @@ func (m InboxModel) syncViewport() InboxModel {
 }
 
 func (m InboxModel) View() string {
-	m = m.syncViewport()
 	title := titleStyle.Render("INBOX")
 	header := title + "\n" + divider(contentWidth()) + "\n"
+	if len(m.items) == 0 {
+		body := "\n" + mutedStyle.Render("no letters yet")
+		if m.loading {
+			body = "\n" + mutedStyle.Render("loading...")
+		} else if m.err != "" {
+			body = "\n" + errorStyle.Render(m.err)
+		}
+		return emptyScreenView(header, body, "[b] back")
+	}
+	m = m.syncViewport()
 	footer := "\n\n" + helpStyle.Render("[up/dn] select  [enter] read  [r] reply  [b] back")
 	return screenBoxFixed().Render(header + m.viewport.View() + footer)
 }

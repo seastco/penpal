@@ -287,9 +287,18 @@ func (m InTransitModel) syncViewport() InTransitModel {
 }
 
 func (m InTransitModel) View() string {
-	m = m.syncViewport()
 	title := titleStyle.Render("IN TRANSIT")
 	header := title + "\n" + divider(contentWidth()) + "\n"
+	if len(m.items) == 0 {
+		body := "\n" + mutedStyle.Render("no letters in transit")
+		if m.loading {
+			body = "\n" + mutedStyle.Render("loading...")
+		} else if m.err != "" {
+			body = "\n" + errorStyle.Render(m.err)
+		}
+		return emptyScreenView(header, body, "[b] back")
+	}
+	m = m.syncViewport()
 	footer := "\n\n" + helpStyle.Render("[enter] view  [b] back")
 	return screenBoxFixed().Render(header + m.viewport.View() + footer)
 }
@@ -374,7 +383,7 @@ func (m SentModel) syncViewport() SentModel {
 	} else if m.err != "" {
 		content = "\n" + errorStyle.Render(m.err)
 	} else if len(m.items) == 0 {
-		content = "\n" + mutedStyle.Render("no sent letters")
+		content = "\n" + mutedStyle.Render("no letters yet")
 	} else {
 		var b strings.Builder
 		for i, item := range m.items {
@@ -411,9 +420,18 @@ func (m SentModel) syncViewport() SentModel {
 }
 
 func (m SentModel) View() string {
-	m = m.syncViewport()
 	title := titleStyle.Render("SENT")
 	header := title + "\n" + divider(contentWidth()) + "\n"
+	if len(m.items) == 0 {
+		body := "\n" + mutedStyle.Render("no letters yet")
+		if m.loading {
+			body = "\n" + mutedStyle.Render("loading...")
+		} else if m.err != "" {
+			body = "\n" + errorStyle.Render(m.err)
+		}
+		return emptyScreenView(header, body, "[b] back")
+	}
+	m = m.syncViewport()
 	footer := "\n\n" + helpStyle.Render("[enter] view  [b] back")
 	return screenBoxFixed().Render(header + m.viewport.View() + footer)
 }
