@@ -179,6 +179,22 @@ func (d *DB) GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error
 	return u, nil
 }
 
+// GetUserByPublicKey looks up a user by their ed25519 public key.
+func (d *DB) GetUserByPublicKey(ctx context.Context, publicKey []byte) (*models.User, error) {
+	u := &models.User{}
+	err := d.pool.QueryRowContext(ctx,
+		`SELECT id, username, discriminator, public_key, home_city, home_lat, home_lng, last_active, created_at
+		 FROM users WHERE public_key = $1`, publicKey,
+	).Scan(&u.ID, &u.Username, &u.Discriminator, &u.PublicKey, &u.HomeCity, &u.HomeLat, &u.HomeLng, &u.LastActive, &u.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("getting user by public key: %w", err)
+	}
+	return u, nil
+}
+
 // TouchUserActive updates the last_active timestamp for a user.
 func (d *DB) TouchUserActive(ctx context.Context, userID uuid.UUID) error {
 	_, err := d.pool.ExecContext(ctx,

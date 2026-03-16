@@ -163,6 +163,16 @@ func (m ComposeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m ComposeModel) updateRecipient(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Empty contacts state: simple key handling
+		if m.contacts != nil && len(m.contacts) == 0 {
+			switch msg.String() {
+			case "a":
+				return m, func() tea.Msg { return switchScreenMsg{screen: ScreenAddContact} }
+			case "b", "esc":
+				return m, func() tea.Msg { return switchScreenMsg{screen: m.origin} }
+			}
+			return m, nil
+		}
 		switch msg.String() {
 		case "enter":
 			if len(m.filteredIdx) > 0 && m.recipientSel < len(m.filteredIdx) {
@@ -532,7 +542,15 @@ func (m ComposeModel) View() string {
 
 func (m ComposeModel) viewRecipient() string {
 	title := titleStyle.Render("COMPOSE")
-	content := title + "\n" + divider(contentWidth()) + "\n"
+	header := title + "\n" + divider(contentWidth()) + "\n"
+
+	// Empty contacts state
+	if m.contacts != nil && len(m.contacts) == 0 {
+		body := "\n" + mutedStyle.Render("no contacts yet")
+		return emptyScreenView(header, body, "[a] add contact  [b] back")
+	}
+
+	content := header
 	content += fmt.Sprintf("to: %s\n\n", m.recipientInput.View())
 
 	maxVisible := viewportHeight() - 6 // dynamic based on terminal height

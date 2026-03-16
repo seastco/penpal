@@ -15,6 +15,7 @@ CREATE TABLE users (
     UNIQUE(username, discriminator)
 );
 
+CREATE UNIQUE INDEX idx_users_public_key ON users(public_key);
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_last_active ON users(last_active);
 

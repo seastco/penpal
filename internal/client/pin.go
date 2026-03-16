@@ -23,6 +23,15 @@ func pinFilePath() (string, error) {
 	return filepath.Join(dir, "pin"), nil
 }
 
+// clearPin removes any existing PIN file.
+func clearPin() {
+	p, err := pinFilePath()
+	if err != nil {
+		return
+	}
+	os.Remove(p)
+}
+
 // PinFileExists checks whether a PIN hash has been saved.
 func PinFileExists() bool {
 	p, err := pinFilePath()

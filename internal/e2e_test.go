@@ -258,16 +258,78 @@ func TestEndToEnd(t *testing.T) {
 	authOK := unmarshal[protocol.AuthOKResponse](t, authOKResp)
 	t.Logf("Re-authenticated as %s#%s", authOK.User.Username, authOK.User.Discriminator)
 
-	// ===== Step 12: Test key recovery =====
-	t.Log("=== Testing key recovery ===")
-	pubA2, privA2, _ := pencrypto.KeypairFromMnemonic(mnemonicA)
-	if !pubA.Equal(pubA2) {
-		t.Fatal("recovered public key doesn't match")
+	// ===== Step 12: Test account recovery via server =====
+	t.Log("=== Testing account recovery ===")
+
+	// Open a fresh connection (simulating a new device)
+	clientA3 := dial(t)
+	defer clientA3.close()
+	clientA3.seq = 200
+
+	// Derive keypair from the same mnemonic
+	pubRecovered, _, _ := pencrypto.KeypairFromMnemonic(mnemonicA)
+	if !pubA.Equal(pubRecovered) {
+		t.Fatal("recovered public key doesn't match original")
 	}
-	if !privA.Equal(privA2) {
-		t.Fatal("recovered private key doesn't match")
+
+	// Send recovery request to server
+	recoverResp := clientA3.send(t, protocol.MsgRecover, protocol.RecoverRequest{
+		PublicKey: pubRecovered,
+	})
+	recoverResult := unmarshal[protocol.RecoverResponse](t, recoverResp)
+
+	if recoverResult.User.ID != regA.UserID {
+		t.Fatalf("recovered user ID mismatch: got %s, want %s", recoverResult.User.ID, regA.UserID)
 	}
-	t.Log("Key recovery: PASS — same mnemonic produces identical keys")
+	if recoverResult.User.Username != "steven" {
+		t.Fatalf("recovered username mismatch: got %s, want steven", recoverResult.User.Username)
+	}
+	if recoverResult.User.Discriminator != regA.Discriminator {
+		t.Fatalf("recovered discriminator mismatch: got %s, want %s",
+			recoverResult.User.Discriminator, regA.Discriminator)
+	}
+	if recoverResult.User.HomeCity != "Boston, MA" {
+		t.Fatalf("recovered home city mismatch: got %s, want Boston, MA", recoverResult.User.HomeCity)
+	}
+	t.Logf("Recovery: restored %s#%s (ID: %s) from mnemonic",
+		recoverResult.User.Username, recoverResult.User.Discriminator, recoverResult.User.ID)
+
+	// Verify the recovered session is authenticated by making an authenticated request
+	stampsResp2 := clientA3.send(t, protocol.MsgGetStamps, nil)
+	stamps2 := unmarshal[protocol.StampsResponse](t, stampsResp2)
+	if len(stamps2.Stamps) < 2 {
+		t.Fatalf("expected at least 2 stamps after recovery, got %d", len(stamps2.Stamps))
+	}
+	t.Logf("Recovery session authenticated: can see %d stamps", len(stamps2.Stamps))
+
+	// Test recovery with unknown mnemonic (should fail)
+	t.Log("=== Testing recovery with unknown mnemonic ===")
+	clientA4 := dial(t)
+	defer clientA4.close()
+	clientA4.seq = 300
+	unknownMnemonic, _ := pencrypto.GenerateMnemonic()
+	unknownPub, _, _ := pencrypto.KeypairFromMnemonic(unknownMnemonic)
+
+	func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		env := protocol.Envelope{
+			Type:    protocol.MsgRecover,
+			Payload: protocol.RecoverRequest{PublicKey: unknownPub},
+			ReqID:   "test-fail-recover",
+		}
+		if err := wsjson.Write(ctx, clientA4.conn, env); err != nil {
+			t.Fatalf("sending recover: %v", err)
+		}
+		var resp protocol.Envelope
+		if err := wsjson.Read(ctx, clientA4.conn, &resp); err != nil {
+			t.Fatalf("reading recover response: %v", err)
+		}
+		if resp.Error == "" {
+			t.Fatal("expected error for unknown recovery key, got success")
+		}
+		t.Logf("Unknown mnemonic correctly rejected: %s", resp.Error)
+	}()
 
 	// ===== Step 13: Test decryption (verify Jake can decrypt) =====
 	t.Log("=== Testing decryption ===")
