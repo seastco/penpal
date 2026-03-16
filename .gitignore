@@ -1,0 +1,27 @@
+# Compiled binaries
+/penpal
+/preprocess
+/seed
+/client.test
+/bin/
+
+# Generated data (rebuild with: go run ./cmd/preprocess)
+data/graph.json
+data/graph_full.json
+
+# Intermediate/source data not needed at runtime
+data/census_population.json
+data/us_cities.csv
+
+# Personal dev seed data
+scripts/seed.sql
+
+# OS
+.DS_Store
+
+# Editors
+*.swp
+*.swo
+*~
+.idea/
+.vscode/

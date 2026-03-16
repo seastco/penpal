@@ -1,0 +1,284 @@
+package client
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
+
+	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/google/uuid"
+	pencrypto "github.com/stove/penpal/internal/crypto"
+	"github.com/stove/penpal/internal/protocol"
+)
+
+// InboxModel shows delivered letters.
+type InboxModel struct {
+	app      *AppState
+	items    []protocol.InboxItem
+	cursor   int
+	viewport viewport.Model
+	loading  bool
+	err      string
+}
+
+func NewInboxModel(app *AppState) InboxModel {
+	vp := viewport.New(contentWidth(), viewportHeight())
+	vp.KeyMap = viewport.KeyMap{}
+	m := InboxModel{app: app, loading: true, viewport: vp}
+	return m.syncViewport()
+}
+
+type inboxLoadedMsg struct {
+	items []protocol.InboxItem
+}
+
+func (m InboxModel) Init() tea.Cmd {
+	return func() tea.Msg {
+		items, err := m.app.Network.GetInbox(context.Background())
+		if err != nil {
+			return errMsg{err: err}
+		}
+		return inboxLoadedMsg{items: items}
+	}
+}
+
+func (m InboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "up", "k":
+			if m.cursor > 0 {
+				m.cursor--
+			}
+		case "down", "j":
+			if m.cursor < len(m.items)-1 {
+				m.cursor++
+			}
+		case "enter":
+			if len(m.items) > 0 {
+				item := m.items[m.cursor]
+				body, cached := m.app.DecryptedBodies[item.MessageID]
+				if !cached {
+					if err := pencrypto.VerifyAndPinKey(item.SenderID.String(), item.SenderPubKey); err != nil {
+						body = fmt.Sprintf("(key verification failed: %v)", err)
+					} else if plaintext, err := pencrypto.Decrypt(item.EncryptedBody, m.app.PrivateKey, item.SenderPubKey); err != nil {
+						body = "(unable to decrypt this letter)"
+					} else {
+						body = string(plaintext)
+					}
+					m.app.DecryptedBodies[item.MessageID] = body
+				}
+				return m, func() tea.Msg {
+					return readLetterMsg{item: item, body: body}
+				}
+			}
+		case "r":
+			if len(m.items) > 0 {
+				item := m.items[m.cursor]
+				// Decrypt and cache the body so compose can show the original letter
+				if _, cached := m.app.DecryptedBodies[item.MessageID]; !cached {
+					if err := pencrypto.VerifyAndPinKey(item.SenderID.String(), item.SenderPubKey); err != nil {
+						m.app.DecryptedBodies[item.MessageID] = fmt.Sprintf("(key verification failed: %v)", err)
+					} else if plaintext, err := pencrypto.Decrypt(item.EncryptedBody, m.app.PrivateKey, item.SenderPubKey); err != nil {
+						m.app.DecryptedBodies[item.MessageID] = "(unable to decrypt this letter)"
+					} else {
+						m.app.DecryptedBodies[item.MessageID] = string(plaintext)
+					}
+				}
+				return m, func() tea.Msg {
+					return composeToMsg{
+						recipientID:    item.SenderID,
+						recipientName:  item.SenderName,
+						originalMsgID:  item.MessageID,
+						originalSender: item.SenderName,
+					}
+				}
+			}
+		case "b", "esc":
+			return m, func() tea.Msg { return switchScreenMsg{screen: ScreenHome} }
+		}
+	case tea.WindowSizeMsg:
+		m.viewport.Width = contentWidth()
+		m.viewport.Height = viewportHeight()
+	case inboxLoadedMsg:
+		m.items = msg.items
+		m.loading = false
+	case errMsg:
+		m.err = msg.err.Error()
+		m.loading = false
+	}
+	m = m.syncViewport()
+	return m, nil
+}
+
+func (m InboxModel) syncViewport() InboxModel {
+	var content string
+	if m.loading {
+		content = "\n" + mutedStyle.Render("loading...")
+	} else if m.err != "" {
+		content = "\n" + errorStyle.Render(m.err)
+	} else if len(m.items) == 0 {
+		content = "\n" + mutedStyle.Render("no letters yet")
+	} else {
+		var b strings.Builder
+		for i, item := range m.items {
+			prefix := "  "
+			if i == m.cursor {
+				prefix = "* "
+			}
+			date := item.DeliveredAt.Format("Jan 2 3:04pm")
+			isNew := item.ReadAt == nil
+			line := fmt.Sprintf("%-14s %s", item.SenderName, date)
+			if i == m.cursor {
+				line = selectedStyle.Render(prefix + line)
+			} else {
+				line = menuStyle.Render(prefix + line)
+			}
+			if isNew {
+				line += "  " + newStyle.Render("new")
+			}
+			b.WriteString(line + "\n")
+		}
+		content = b.String()
+	}
+
+	yOffset := m.viewport.YOffset
+	m.viewport.SetContent(content)
+	if len(m.items) > 0 {
+		m.viewport.SetYOffset(yOffset)
+		// Keep cursor visible
+		if m.cursor < m.viewport.YOffset {
+			m.viewport.SetYOffset(m.cursor)
+		} else if m.cursor >= m.viewport.YOffset+m.viewport.Height {
+			m.viewport.SetYOffset(m.cursor - m.viewport.Height + 1)
+		}
+	}
+	return m
+}
+
+func (m InboxModel) View() string {
+	m = m.syncViewport()
+	title := titleStyle.Render("INBOX")
+	header := title + "\n" + divider(contentWidth()) + "\n"
+	footer := "\n\n" + helpStyle.Render("[up/dn] select  [enter] read  [r] reply  [b] back")
+	return screenBoxFixed().Render(header + m.viewport.View() + footer)
+}
+
+// --- Read Letter ---
+
+type readLetterMsg struct {
+	item protocol.InboxItem
+	body string // pre-decrypted plaintext
+}
+
+type composeToMsg struct {
+	recipientID    uuid.UUID
+	recipientName  string
+	originalMsgID  uuid.UUID // zero = fresh compose
+	originalSender string
+}
+
+// ReadLetterModel displays a single letter.
+type ReadLetterModel struct {
+	app      *AppState
+	item     protocol.InboxItem
+	body     string
+	viewport viewport.Model
+	err      string
+}
+
+func NewReadLetterModel(app *AppState, item protocol.InboxItem, body string) ReadLetterModel {
+	vp := viewport.New(contentWidth(), viewportHeight()-1)
+	rendered := body
+	if app.GlamourRenderer != nil {
+		if r, err := app.GlamourRenderer.Render(body); err == nil {
+			rendered = r
+		}
+	}
+	vp.SetContent(rendered)
+	return ReadLetterModel{app: app, item: item, body: body, viewport: vp}
+}
+
+func (m ReadLetterModel) Init() tea.Cmd {
+	return func() tea.Msg {
+		m.app.Network.MarkRead(context.Background(), m.item.MessageID)
+		return nil
+	}
+}
+
+func (m ReadLetterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "r":
+			return m, func() tea.Msg {
+				return composeToMsg{
+					recipientID:    m.item.SenderID,
+					recipientName:  m.item.SenderName,
+					originalMsgID:  m.item.MessageID,
+					originalSender: m.item.SenderName,
+				}
+			}
+		case "b", "esc":
+			return m, func() tea.Msg { return backToInboxMsg{} }
+		}
+	case tea.WindowSizeMsg:
+		m.viewport.Width = contentWidth()
+		m.viewport.Height = viewportHeight() - 1
+	case errMsg:
+		m.err = msg.err.Error()
+		m.viewport.SetContent("  " + errorStyle.Render(m.err))
+	}
+	var cmd tea.Cmd
+	m.viewport, cmd = m.viewport.Update(msg)
+	return m, cmd
+}
+
+func (m ReadLetterModel) View() string {
+	sentDate := m.item.SentAt.Format("Jan 2 3:04pm")
+	arrDate := m.item.DeliveredAt.Format("Jan 2 3:04pm")
+
+	header := fmt.Sprintf("  FROM: %s\n  SENT: %s  ARRIVED: %s",
+		selectedStyle.Render(m.item.SenderName), sentDate, arrDate)
+	header += "\n" + divider(contentWidth()) + "\n"
+
+	footer := "\n\n" + helpStyle.Render("[r] reply  [b] back")
+	return screenBoxFixed().Render(header + m.viewport.View() + footer)
+}
+
+func (n *Network) GetMessage(ctx context.Context, msgID uuid.UUID) (*protocol.GetMessageResponse, error) {
+	resp, err := n.Send(ctx, protocol.MsgGetMessage, protocol.GetMessageRequest{MessageID: msgID})
+	if err != nil {
+		return nil, err
+	}
+	data, _ := json.Marshal(resp.Payload)
+	var result protocol.GetMessageResponse
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("parsing message response: %w", err)
+	}
+	return &result, nil
+}
+
+func (n *Network) GetPublicKeyForUser(ctx context.Context, userID uuid.UUID) ([]byte, error) {
+	resp, err := n.Send(ctx, protocol.MsgGetPublicKey, protocol.GetPublicKeyRequest{UserID: userID})
+	if err != nil {
+		return nil, err
+	}
+	data, _ := json.Marshal(resp.Payload)
+	var result protocol.PublicKeyResponse
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("parsing public key response: %w", err)
+	}
+	if len(result.PublicKey) == 0 {
+		return nil, fmt.Errorf("empty public key returned")
+	}
+	// Verify against locally pinned key (TOFU model).
+	// On first contact, the key is pinned. On subsequent contacts, if the key
+	// has changed, this returns an error to prevent MITM attacks by the server.
+	if err := pencrypto.VerifyAndPinKey(userID.String(), result.PublicKey); err != nil {
+		return nil, fmt.Errorf("key verification failed for %s: %w", userID, err)
+	}
+	return result.PublicKey, nil
+}
