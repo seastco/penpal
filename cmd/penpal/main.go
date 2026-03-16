@@ -13,7 +13,14 @@ import (
 	pencrypto "github.com/stove/penpal/internal/crypto"
 )
 
+var version = "dev"
+
 func main() {
+	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
+		fmt.Println("penpal " + version)
+		return
+	}
+
 	serverURL := envOr("PENPAL_SERVER", "ws://localhost:8282")
 
 	// Warn if connecting to a remote server without TLS

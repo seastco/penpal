@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - run: go vet ./...
+
+      - run: go test ./internal/crypto -v
+
+      - run: go test ./internal/routing -v
+
+      - run: go test ./internal/client -v
+
+      - run: go build ./cmd/penpal
+
+      - run: go build ./cmd/server
