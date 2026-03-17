@@ -17,15 +17,18 @@ type Config struct {
 	ListenAddr string
 	DBConnStr  string
 	CityGraph  string // path to precomputed city graph
+	TrustProxy bool   // trust X-Forwarded-For for client IP
 }
 
 // Server is the penpal relay server.
 type Server struct {
-	cfg     Config
-	db      *db.DB
-	graph   *routing.Graph
-	hub     *Hub
-	httpSrv *http.Server
+	cfg        Config
+	db         *db.DB
+	graph      *routing.Graph
+	hub        *Hub
+	limiter    *IPRateLimiter
+	trustProxy bool
+	httpSrv    *http.Server
 }
 
 // New creates a new server instance.
@@ -40,11 +43,16 @@ func New(cfg Config) (*Server, error) {
 		return nil, fmt.Errorf("loading city graph: %w", err)
 	}
 	log.Printf("loaded city graph: %d cities", len(graph.Cities))
+	if len(graph.Cities) == 0 {
+		return nil, fmt.Errorf("city graph is empty — check %s", cfg.CityGraph)
+	}
 
 	s := &Server{
-		cfg:   cfg,
-		db:    database,
-		graph: graph,
+		cfg:        cfg,
+		db:         database,
+		graph:      graph,
+		limiter:    NewIPRateLimiter(),
+		trustProxy: cfg.TrustProxy,
 	}
 	s.hub = NewHub()
 
@@ -74,11 +82,17 @@ func (s *Server) Start(ctx context.Context) error {
 	// Start WebSocket hub
 	go s.hub.Run(ctx)
 
-	// Start delivery loop
-	go s.deliveryLoop(ctx)
+	// Start rate limiter cleanup
+	go s.limiter.StartCleanup(ctx.Done())
 
-	// Start weekly stamp loop
-	go s.weeklyStampLoop(ctx)
+	// Start delivery loop (with panic recovery + auto-restart)
+	go s.safeLoop(ctx, "deliveryLoop", s.deliveryLoop)
+
+	// Start weekly stamp loop (with panic recovery + auto-restart)
+	go s.safeLoop(ctx, "weeklyStampLoop", s.weeklyStampLoop)
+
+	// Start ghost account reaper (daily)
+	go s.safeLoop(ctx, "reapLoop", s.reapLoop)
 
 	log.Printf("server listening on %s", s.cfg.ListenAddr)
 	if err := s.httpSrv.ListenAndServe(); err != http.ErrServerClosed {
@@ -93,6 +107,29 @@ func (s *Server) Shutdown(ctx context.Context) error {
 		return err
 	}
 	return s.db.Close()
+}
+
+// safeLoop runs fn in a loop with panic recovery. If fn panics, it logs the
+// error and restarts after a delay. If the context is cancelled (clean shutdown),
+// it exits without restarting.
+func (s *Server) safeLoop(ctx context.Context, name string, fn func(context.Context)) {
+	for {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("CRITICAL: %s panicked: %v — restarting in 5s", name, r)
+				}
+			}()
+			fn(ctx)
+		}()
+		// fn exited — either ctx cancelled (clean) or panic (recovered above)
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			time.Sleep(5 * time.Second)
+		}
+	}
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -146,6 +183,29 @@ func (s *Server) weeklyStampLoop(ctx context.Context) {
 			}
 			if len(users) > 0 {
 				log.Printf("awarded weekly stamps to %d users", len(users))
+			}
+		}
+	}
+}
+
+// reapLoop deletes ghost accounts (never sent/received a letter) inactive for 90+ days.
+func (s *Server) reapLoop(ctx context.Context) {
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			cutoff := time.Now().AddDate(0, 0, -90)
+			count, err := s.db.ReapGhostAccounts(ctx, cutoff)
+			if err != nil {
+				log.Printf("reap error: %v", err)
+				continue
+			}
+			if count > 0 {
+				log.Printf("reaped %d ghost accounts (inactive since %s)", count, cutoff.Format("2006-01-02"))
 			}
 		}
 	}

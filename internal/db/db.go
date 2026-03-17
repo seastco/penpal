@@ -227,7 +227,7 @@ func (d *DB) GetContacts(ctx context.Context, ownerID uuid.UUID) ([]models.User,
 	rows, err := d.pool.QueryContext(ctx,
 		`SELECT u.id, u.username, u.discriminator, u.public_key, u.home_city, u.home_lat, u.home_lng, u.last_active, u.created_at
 		 FROM contacts c JOIN users u ON c.contact_id = u.id
-		 WHERE c.owner_id = $1 ORDER BY u.username`, ownerID,
+		 WHERE c.owner_id = $1 ORDER BY u.username LIMIT 500`, ownerID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("querying contacts: %w", err)
@@ -374,16 +374,34 @@ type InboxRow struct {
 }
 
 // GetInboxWithSenders returns delivered messages with sender info, newest first.
-func (d *DB) GetInboxWithSenders(ctx context.Context, userID uuid.UUID) ([]InboxRow, error) {
-	rows, err := d.pool.QueryContext(ctx,
-		`SELECT m.id, m.sender_id, m.recipient_id, m.encrypted_body, m.shipping_tier, m.route,
-		        m.sent_at, m.release_at, m.delivered_at, m.read_at, m.status,
-		        u.username, u.public_key
-		 FROM messages m
-		 JOIN users u ON u.id = m.sender_id
-		 WHERE m.recipient_id = $1 AND m.status IN ('delivered', 'read')
-		 ORDER BY m.delivered_at DESC`, userID,
-	)
+// If before is non-nil, only returns messages delivered before that timestamp (cursor pagination).
+func (d *DB) GetInboxWithSenders(ctx context.Context, userID uuid.UUID, before *time.Time, limit int) ([]InboxRow, error) {
+	var rows *sql.Rows
+	var err error
+	if before != nil {
+		rows, err = d.pool.QueryContext(ctx,
+			`SELECT m.id, m.sender_id, m.recipient_id, m.encrypted_body, m.shipping_tier, m.route,
+			        m.sent_at, m.release_at, m.delivered_at, m.read_at, m.status,
+			        u.username, u.public_key
+			 FROM messages m
+			 JOIN users u ON u.id = m.sender_id
+			 WHERE m.recipient_id = $1 AND m.status IN ('delivered', 'read')
+			   AND m.delivered_at < $2
+			 ORDER BY m.delivered_at DESC
+			 LIMIT $3`, userID, *before, limit,
+		)
+	} else {
+		rows, err = d.pool.QueryContext(ctx,
+			`SELECT m.id, m.sender_id, m.recipient_id, m.encrypted_body, m.shipping_tier, m.route,
+			        m.sent_at, m.release_at, m.delivered_at, m.read_at, m.status,
+			        u.username, u.public_key
+			 FROM messages m
+			 JOIN users u ON u.id = m.sender_id
+			 WHERE m.recipient_id = $1 AND m.status IN ('delivered', 'read')
+			 ORDER BY m.delivered_at DESC
+			 LIMIT $2`, userID, limit,
+		)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -442,16 +460,34 @@ type SentRow struct {
 }
 
 // GetSentWithRecipients returns sent messages with recipient name, newest first.
-func (d *DB) GetSentWithRecipients(ctx context.Context, userID uuid.UUID) ([]SentRow, error) {
-	rows, err := d.pool.QueryContext(ctx,
-		`SELECT m.id, m.sender_id, m.recipient_id, m.encrypted_body, m.shipping_tier, m.route,
-		        m.sent_at, m.release_at, m.delivered_at, m.read_at, m.status,
-		        u.username
-		 FROM messages m
-		 JOIN users u ON u.id = m.recipient_id
-		 WHERE m.sender_id = $1
-		 ORDER BY m.sent_at DESC`, userID,
-	)
+// If before is non-nil, only returns messages sent before that timestamp (cursor pagination).
+func (d *DB) GetSentWithRecipients(ctx context.Context, userID uuid.UUID, before *time.Time, limit int) ([]SentRow, error) {
+	var rows *sql.Rows
+	var err error
+	if before != nil {
+		rows, err = d.pool.QueryContext(ctx,
+			`SELECT m.id, m.sender_id, m.recipient_id, m.encrypted_body, m.shipping_tier, m.route,
+			        m.sent_at, m.release_at, m.delivered_at, m.read_at, m.status,
+			        u.username
+			 FROM messages m
+			 JOIN users u ON u.id = m.recipient_id
+			 WHERE m.sender_id = $1
+			   AND m.sent_at < $2
+			 ORDER BY m.sent_at DESC
+			 LIMIT $3`, userID, *before, limit,
+		)
+	} else {
+		rows, err = d.pool.QueryContext(ctx,
+			`SELECT m.id, m.sender_id, m.recipient_id, m.encrypted_body, m.shipping_tier, m.route,
+			        m.sent_at, m.release_at, m.delivered_at, m.read_at, m.status,
+			        u.username
+			 FROM messages m
+			 JOIN users u ON u.id = m.recipient_id
+			 WHERE m.sender_id = $1
+			 ORDER BY m.sent_at DESC
+			 LIMIT $2`, userID, limit,
+		)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -560,7 +596,7 @@ func (d *DB) MarkRead(ctx context.Context, msgID uuid.UUID) error {
 
 // CheckRateLimit returns true if the sender is within rate limits.
 func (d *DB) CheckRateLimit(ctx context.Context, senderID, recipientID uuid.UUID) (bool, error) {
-	// Per sender-recipient: max 20 per day
+	// Per sender-recipient: max 10 per day
 	var pairCount int
 	err := d.pool.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM messages
@@ -570,11 +606,11 @@ func (d *DB) CheckRateLimit(ctx context.Context, senderID, recipientID uuid.UUID
 	if err != nil {
 		return false, err
 	}
-	if pairCount >= 20 {
+	if pairCount >= 10 {
 		return false, nil
 	}
 
-	// Per sender total: max 100 per day
+	// Per sender total: max 50 per day
 	var totalCount int
 	err = d.pool.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM messages
@@ -584,7 +620,7 @@ func (d *DB) CheckRateLimit(ctx context.Context, senderID, recipientID uuid.UUID
 	if err != nil {
 		return false, err
 	}
-	return totalCount < 100, nil
+	return totalCount < 50, nil
 }
 
 // IsBlocked checks if blockerID has blocked blockedID.
@@ -597,21 +633,27 @@ func (d *DB) IsBlocked(ctx context.Context, blockerID, blockedID uuid.UUID) (boo
 	return exists, err
 }
 
-// BlockUser adds a block relationship.
+// BlockUser adds a block relationship and removes the contact atomically.
 func (d *DB) BlockUser(ctx context.Context, blockerID, blockedID uuid.UUID) error {
-	_, err := d.pool.ExecContext(ctx,
-		`INSERT INTO blocks (blocker_id, blocked_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-		blockerID, blockedID,
-	)
+	tx, err := d.pool.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	// Also remove from contacts
-	_, err = d.pool.ExecContext(ctx,
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO blocks (blocker_id, blocked_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+		blockerID, blockedID,
+	); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx,
 		`DELETE FROM contacts WHERE owner_id = $1 AND contact_id = $2`,
 		blockerID, blockedID,
-	)
-	return err
+	); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // --- Stamp operations ---
@@ -620,7 +662,7 @@ func (d *DB) BlockUser(ctx context.Context, blockerID, blockedID uuid.UUID) erro
 func (d *DB) GetStamps(ctx context.Context, ownerID uuid.UUID) ([]models.Stamp, error) {
 	rows, err := d.pool.QueryContext(ctx,
 		`SELECT id, owner_id, stamp_type, rarity, earned_via, source_msg, created_at
-		 FROM stamps WHERE owner_id = $1 ORDER BY created_at`, ownerID,
+		 FROM stamps WHERE owner_id = $1 ORDER BY created_at LIMIT 1000`, ownerID,
 	)
 	if err != nil {
 		return nil, err
@@ -696,7 +738,8 @@ func (d *DB) GetUsersNeedingWeeklyStamp(ctx context.Context) ([]WeeklyStampUser,
 		     WHERE s.owner_id = u.id
 		     AND s.earned_via = 'weekly'
 		     AND s.created_at > now() - interval '7 days'
-		 )`,
+		 )
+		 LIMIT 500`,
 	)
 	if err != nil {
 		return nil, err
@@ -712,5 +755,21 @@ func (d *DB) GetUsersNeedingWeeklyStamp(ctx context.Context) ([]WeeklyStampUser,
 		users = append(users, u)
 	}
 	return users, rows.Err()
+}
+
+// ReapGhostAccounts deletes users who have never sent or received a message
+// and whose last_active is before the given cutoff. Returns the number deleted.
+func (d *DB) ReapGhostAccounts(ctx context.Context, inactiveBefore time.Time) (int64, error) {
+	result, err := d.pool.ExecContext(ctx,
+		`DELETE FROM users
+		 WHERE last_active < $1
+		   AND NOT EXISTS (SELECT 1 FROM messages WHERE sender_id = users.id)
+		   AND NOT EXISTS (SELECT 1 FROM messages WHERE recipient_id = users.id)`,
+		inactiveBefore,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("reaping ghost accounts: %w", err)
+	}
+	return result.RowsAffected()
 }
 

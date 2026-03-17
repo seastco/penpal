@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -15,12 +16,14 @@ import (
 
 // InboxModel shows delivered letters.
 type InboxModel struct {
-	app      *AppState
-	items    []protocol.InboxItem
-	cursor   int
-	viewport viewport.Model
-	loading  bool
-	err      string
+	app         *AppState
+	items       []protocol.InboxItem
+	cursor      int
+	viewport    viewport.Model
+	loading     bool
+	loadingMore bool
+	hasMore     bool
+	err         string
 }
 
 func NewInboxModel(app *AppState) InboxModel {
@@ -31,17 +34,33 @@ func NewInboxModel(app *AppState) InboxModel {
 }
 
 type inboxLoadedMsg struct {
-	items []protocol.InboxItem
+	items   []protocol.InboxItem
+	hasMore bool
+	append  bool // true = subsequent page (append to existing), false = first page (replace)
 }
 
 func (m InboxModel) Init() tea.Cmd {
+	return m.fetchInbox(nil, false)
+}
+
+func (m InboxModel) fetchInbox(before *time.Time, append bool) tea.Cmd {
 	return func() tea.Msg {
-		items, err := m.app.Network.GetInbox(context.Background())
+		resp, err := m.app.Network.GetInbox(context.Background(), before)
 		if err != nil {
 			return errMsg{err: err}
 		}
-		return inboxLoadedMsg{items: items}
+		return inboxLoadedMsg{items: resp.Letters, hasMore: resp.HasMore, append: append}
 	}
+}
+
+func (m InboxModel) maybePrefetch() tea.Cmd {
+	if m.hasMore && !m.loadingMore && m.cursor >= len(m.items)-50 && len(m.items) > 0 {
+		last := m.items[len(m.items)-1]
+		cursor := last.DeliveredAt
+		m.loadingMore = true
+		return m.fetchInbox(&cursor, true)
+	}
+	return nil
 }
 
 func (m InboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -56,6 +75,8 @@ func (m InboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor < len(m.items)-1 {
 				m.cursor++
 			}
+			m = m.syncViewport()
+			return m, m.maybePrefetch()
 		case "enter":
 			if len(m.items) > 0 {
 				item := m.items[m.cursor]
@@ -103,11 +124,18 @@ func (m InboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.Width = contentWidth()
 		m.viewport.Height = viewportHeight()
 	case inboxLoadedMsg:
-		m.items = msg.items
-		m.loading = false
+		if msg.append {
+			m.items = append(m.items, msg.items...)
+			m.loadingMore = false
+		} else {
+			m.items = msg.items
+			m.loading = false
+		}
+		m.hasMore = msg.hasMore
 	case errMsg:
 		m.err = msg.err.Error()
 		m.loading = false
+		m.loadingMore = false
 	}
 	m = m.syncViewport()
 	return m, nil

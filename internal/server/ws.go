@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	mathrand "math/rand"
 	"net/http"
 	"strings"
@@ -25,6 +26,7 @@ type Client struct {
 	conn         *websocket.Conn
 	userID       uuid.UUID
 	server       *Server
+	ip           string
 	sendCh       chan protocol.Envelope
 	pendingNonce []byte       // auth challenge nonce
 	pendingUser  *models.User // user being authenticated
@@ -60,11 +62,19 @@ func (c *Client) Send(msgType string, payload any) {
 	select {
 	case c.sendCh <- protocol.Envelope{Type: protocol.MessageType(msgType), Payload: payload}:
 	default:
-		// Channel full, drop message
+		log.Printf("WARNING: sendCh full for user %s, dropping %s", c.userID, msgType)
 	}
 }
 
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	// IP rate limiting: max concurrent connections per IP
+	ip := remoteIP(r, s.trustProxy)
+	if !s.limiter.AllowConn(ip) {
+		http.Error(w, "too many connections", http.StatusTooManyRequests)
+		return
+	}
+	defer s.limiter.ReleaseConn(ip)
+
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		// InsecureSkipVerify allows CLI clients (no Origin header).
 		// This is safe because every mutating operation requires ed25519
@@ -77,21 +87,33 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.CloseNow()
+	conn.SetReadLimit(1 << 20) // 1 MB max message size
 
 	ctx := r.Context()
 	client := &Client{
 		conn:   conn,
 		server: s,
+		ip:     ip,
 		sendCh: make(chan protocol.Envelope, 64),
 	}
+
+	// Ensure hub cleanup runs even if a handler panics
+	defer func() {
+		if client.userID != uuid.Nil {
+			s.hub.Unregister(client)
+		}
+	}()
 
 	// Start send loop
 	go client.sendLoop(ctx)
 
-	// Handle messages
+	// Handle messages (5-minute read timeout detects dead connections)
+	const wsReadTimeout = 5 * time.Minute
 	for {
+		readCtx, readCancel := context.WithTimeout(ctx, wsReadTimeout)
 		var env protocol.Envelope
-		err := wsjson.Read(ctx, conn, &env)
+		err := wsjson.Read(readCtx, conn, &env)
+		readCancel()
 		if err != nil {
 			if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
 				break
@@ -104,11 +126,6 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			log.Printf("handler error for %s: %v", env.Type, err)
 			client.sendError(env.ReqID, err.Error())
 		}
-	}
-
-	// Cleanup
-	if client.userID != uuid.Nil {
-		s.hub.Unregister(client)
 	}
 }
 
@@ -126,18 +143,28 @@ func (c *Client) sendLoop(ctx context.Context) {
 }
 
 func (c *Client) sendResponse(reqID string, msgType protocol.MessageType, payload any) {
-	c.sendCh <- protocol.Envelope{
+	env := protocol.Envelope{
 		Type:    msgType,
 		Payload: payload,
 		ReqID:   reqID,
 	}
+	select {
+	case c.sendCh <- env:
+	case <-time.After(10 * time.Second):
+		log.Printf("sendResponse timeout for user %s, type %s", c.userID, msgType)
+	}
 }
 
 func (c *Client) sendError(reqID string, msg string) {
-	c.sendCh <- protocol.Envelope{
+	env := protocol.Envelope{
 		Type:  protocol.MsgError,
 		Error: msg,
 		ReqID: reqID,
+	}
+	select {
+	case c.sendCh <- env:
+	case <-time.After(10 * time.Second):
+		log.Printf("sendError timeout for user %s", c.userID)
 	}
 }
 
@@ -208,6 +235,17 @@ func (c *Client) handleRegister(ctx context.Context, env protocol.Envelope) erro
 	}
 	if len(req.PublicKey) != ed25519.PublicKeySize {
 		return fmt.Errorf("invalid public key size")
+	}
+	if len(req.HomeCity) > 200 {
+		return fmt.Errorf("home city too long")
+	}
+	if !validCoords(req.HomeLat, req.HomeLng) {
+		return fmt.Errorf("invalid coordinates")
+	}
+
+	// IP rate limiting: max registrations per IP per hour
+	if !c.server.limiter.AllowRegistration(c.ip) {
+		return fmt.Errorf("too many registrations, try again later")
 	}
 
 	user, err := c.server.db.CreateUser(ctx, req.Username, req.PublicKey, req.HomeCity, req.HomeLat, req.HomeLng)
@@ -337,8 +375,14 @@ func (c *Client) handleSendLetter(ctx context.Context, env protocol.Envelope) er
 		return fmt.Errorf("invalid send request: %w", err)
 	}
 
+	if len(req.EncryptedBody) > 64*1024 {
+		return fmt.Errorf("message too large")
+	}
 	if len(req.StampIDs) == 0 {
 		return fmt.Errorf("at least one stamp is required")
+	}
+	if len(req.StampIDs) > 5 {
+		return fmt.Errorf("too many stamps attached (max 5)")
 	}
 
 	// Validate sender has recipient as contact
@@ -452,9 +496,26 @@ func (s *Server) awardWeeklyStamp(ctx context.Context, userID uuid.UUID, homeCit
 }
 
 func (c *Client) handleGetInbox(ctx context.Context, env protocol.Envelope) error {
-	rows, err := c.server.db.GetInboxWithSenders(ctx, c.userID)
+	var req protocol.GetInboxRequest
+	if env.Payload != nil {
+		data, _ := json.Marshal(env.Payload)
+		json.Unmarshal(data, &req)
+	}
+
+	limit := req.Limit
+	if limit <= 0 || limit > 100 {
+		limit = 100
+	}
+
+	// Fetch limit+1 to detect has_more
+	rows, err := c.server.db.GetInboxWithSenders(ctx, c.userID, req.Before, limit+1)
 	if err != nil {
 		return err
+	}
+
+	hasMore := len(rows) > limit
+	if hasMore {
+		rows = rows[:limit]
 	}
 
 	// Batch-fetch stamps for all messages (1 query instead of N)
@@ -483,14 +544,31 @@ func (c *Client) handleGetInbox(ctx context.Context, env protocol.Envelope) erro
 		}
 	}
 
-	c.sendResponse(env.ReqID, protocol.MsgInbox, protocol.InboxResponse{Letters: items})
+	c.sendResponse(env.ReqID, protocol.MsgInbox, protocol.InboxResponse{Letters: items, HasMore: hasMore})
 	return nil
 }
 
 func (c *Client) handleGetSent(ctx context.Context, env protocol.Envelope) error {
-	rows, err := c.server.db.GetSentWithRecipients(ctx, c.userID)
+	var req protocol.GetSentRequest
+	if env.Payload != nil {
+		data, _ := json.Marshal(env.Payload)
+		json.Unmarshal(data, &req)
+	}
+
+	limit := req.Limit
+	if limit <= 0 || limit > 100 {
+		limit = 100
+	}
+
+	// Fetch limit+1 to detect has_more
+	rows, err := c.server.db.GetSentWithRecipients(ctx, c.userID, req.Before, limit+1)
 	if err != nil {
 		return err
+	}
+
+	hasMore := len(rows) > limit
+	if hasMore {
+		rows = rows[:limit]
 	}
 
 	items := make([]protocol.SentItem, len(rows))
@@ -506,7 +584,7 @@ func (c *Client) handleGetSent(ctx context.Context, env protocol.Envelope) error
 		}
 	}
 
-	c.sendResponse(env.ReqID, protocol.MsgSentList, protocol.SentResponse{Letters: items})
+	c.sendResponse(env.ReqID, protocol.MsgSentList, protocol.SentResponse{Letters: items, HasMore: hasMore})
 	return nil
 }
 
@@ -745,6 +823,9 @@ func (c *Client) handleSearchCities(ctx context.Context, env protocol.Envelope) 
 	if err := json.Unmarshal(data, &req); err != nil {
 		return fmt.Errorf("invalid city search request: %w", err)
 	}
+	if len(req.Query) > 100 {
+		return fmt.Errorf("search query too long")
+	}
 	limit := req.Limit
 	if limit <= 0 || limit > 10 {
 		limit = 5
@@ -822,6 +903,9 @@ func (c *Client) handleUpdateHomeCity(ctx context.Context, env protocol.Envelope
 	if city == "" {
 		return fmt.Errorf("city is required")
 	}
+	if !validCoords(req.Lat, req.Lng) {
+		return fmt.Errorf("invalid coordinates")
+	}
 
 	// Validate that city is in the graph by finding nearest match
 	idx := c.server.graph.NearestCity(req.Lat, req.Lng)
@@ -835,4 +919,31 @@ func (c *Client) handleUpdateHomeCity(ctx context.Context, env protocol.Envelope
 
 	c.sendResponse(env.ReqID, protocol.MsgHomeCityUpdated, nil)
 	return nil
+}
+
+// validCoords returns true if lat/lng are finite and within Earth bounds.
+func validCoords(lat, lng float64) bool {
+	return !math.IsNaN(lat) && !math.IsNaN(lng) &&
+		!math.IsInf(lat, 0) && !math.IsInf(lng, 0) &&
+		lat >= -90 && lat <= 90 &&
+		lng >= -180 && lng <= 180
+}
+
+// remoteIP extracts the client IP from the request.
+func remoteIP(r *http.Request, trustProxy bool) string {
+	if trustProxy {
+		if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
+			// First entry is the original client IP
+			if i := strings.IndexByte(fwd, ','); i != -1 {
+				return strings.TrimSpace(fwd[:i])
+			}
+			return strings.TrimSpace(fwd)
+		}
+	}
+	// Strip port from RemoteAddr
+	addr := r.RemoteAddr
+	if i := strings.LastIndex(addr, ":"); i != -1 {
+		return addr[:i]
+	}
+	return addr
 }

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/stove/penpal/internal/server"
 )
@@ -15,6 +16,7 @@ func main() {
 		ListenAddr: envOr("PENPAL_LISTEN", ":8282"),
 		DBConnStr:  envOr("PENPAL_DB", "postgres://localhost:5432/penpal?sslmode=disable"),
 		CityGraph:  envOr("PENPAL_CITIES", "data/graph.json"),
+		TrustProxy: os.Getenv("PENPAL_TRUST_PROXY") == "true",
 	}
 
 	srv, err := server.New(cfg)
@@ -32,7 +34,9 @@ func main() {
 		<-sigCh
 		log.Println("shutting down...")
 		cancel()
-		srv.Shutdown(context.Background())
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer shutdownCancel()
+		srv.Shutdown(shutdownCtx)
 	}()
 
 	if err := srv.Start(ctx); err != nil {

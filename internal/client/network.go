@@ -45,7 +45,7 @@ func (n *Network) Connect(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("connecting to server: %w", err)
 	}
-	conn.SetReadLimit(1 << 20) // 1MB
+	conn.SetReadLimit(4 << 20) // 4MB — paginated responses are ~1MB max, 4x headroom
 	n.conn = conn
 	n.connected.Store(true)
 
@@ -246,28 +246,38 @@ func (n *Network) AddContact(ctx context.Context, username, discriminator string
 	return &result, nil
 }
 
-// GetInbox retrieves the user's inbox.
-func (n *Network) GetInbox(ctx context.Context) ([]protocol.InboxItem, error) {
-	resp, err := n.Send(ctx, protocol.MsgGetInbox, nil)
+// GetInbox retrieves the user's inbox with cursor-based pagination.
+// Pass nil for before to fetch the first page.
+func (n *Network) GetInbox(ctx context.Context, before *time.Time) (*protocol.InboxResponse, error) {
+	var payload any
+	if before != nil {
+		payload = protocol.GetInboxRequest{Before: before}
+	}
+	resp, err := n.Send(ctx, protocol.MsgGetInbox, payload)
 	if err != nil {
 		return nil, err
 	}
 	data, _ := json.Marshal(resp.Payload)
 	var result protocol.InboxResponse
 	json.Unmarshal(data, &result)
-	return result.Letters, nil
+	return &result, nil
 }
 
-// GetSent retrieves the user's sent mail.
-func (n *Network) GetSent(ctx context.Context) ([]protocol.SentItem, error) {
-	resp, err := n.Send(ctx, protocol.MsgGetSent, nil)
+// GetSent retrieves the user's sent mail with cursor-based pagination.
+// Pass nil for before to fetch the first page.
+func (n *Network) GetSent(ctx context.Context, before *time.Time) (*protocol.SentResponse, error) {
+	var payload any
+	if before != nil {
+		payload = protocol.GetSentRequest{Before: before}
+	}
+	resp, err := n.Send(ctx, protocol.MsgGetSent, payload)
 	if err != nil {
 		return nil, err
 	}
 	data, _ := json.Marshal(resp.Payload)
 	var result protocol.SentResponse
 	json.Unmarshal(data, &result)
-	return result.Letters, nil
+	return &result, nil
 }
 
 // GetInTransit retrieves letters in transit to the user.
