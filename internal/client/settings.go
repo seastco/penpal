@@ -141,7 +141,7 @@ func (m SettingsModel) updateCity(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cityIdx < len(m.cityResults)-1 {
 				m.cityIdx++
 			}
-		case "esc":
+		case "ctrl+b", "esc":
 			m.mode = settingsMenu
 			m.cityInput.Blur()
 			return m, nil
@@ -320,7 +320,7 @@ func (m SettingsModel) viewCity() string {
 		cityList += cursor + "\n"
 	}
 
-	help := helpStyle.Render("[enter] select  [esc] cancel")
+	help := helpStyle.Render("[enter] select  [ctrl+b] back")
 
 	content := fmt.Sprintf("%s\n%s\n\n%s\n\n%s\n%s\n\n%s",
 		title, div,
