@@ -7,7 +7,6 @@
 /bin/
 
 # Generated data (rebuild with: go run ./cmd/preprocess)
-data/graph.json
 data/graph_full.json
 
 # Intermediate/source data not needed at runtime

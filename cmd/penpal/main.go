@@ -21,7 +21,7 @@ func main() {
 		return
 	}
 
-	serverURL := envOr("PENPAL_SERVER", "ws://localhost:8282")
+	serverURL := envOr("PENPAL_SERVER", "wss://getpenpal.dev")
 
 	// Warn if connecting to a remote server without TLS
 	if strings.HasPrefix(serverURL, "ws://") && !strings.Contains(serverURL, "localhost") && !strings.Contains(serverURL, "127.0.0.1") {
