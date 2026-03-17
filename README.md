@@ -27,7 +27,7 @@ penpal
 
 On first launch you'll choose a username, write down your 12-word recovery phrase, and pick a home city. That's it. You're ready to start sending letters.
 
-## Account location
+## Account dir
 
 Your account data lives in `~/.penpal` by default. To use a different directory:
 
