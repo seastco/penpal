@@ -1,0 +1,28 @@
+[Unit]
+Description=Penpal relay server
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=penpal
+Group=penpal
+ExecStart=/opt/penpal/penpal-server
+Environment=PENPAL_LISTEN=:8282
+Environment=PENPAL_DB=postgres:///penpal?host=/var/run/postgresql&sslmode=disable
+Environment=PENPAL_CITIES=/opt/penpal/graph.json
+Environment=PENPAL_TRUST_PROXY=true
+WorkingDirectory=/opt/penpal
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadOnlyPaths=/opt/penpal
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=penpal
+
+[Install]
+WantedBy=multi-user.target

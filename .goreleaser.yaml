@@ -1,7 +1,8 @@
 version: 2
 
 builds:
-  - main: ./cmd/penpal
+  - id: penpal
+    main: ./cmd/penpal
     binary: penpal
     ldflags:
       - -s -w -X main.version={{.Version}}
@@ -14,9 +15,32 @@ builds:
       - amd64
       - arm64
 
+  - id: server
+    main: ./cmd/server
+    binary: penpal-server
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
 archives:
-  - format: tar.gz
+  - id: client
+    builds: [penpal]
+    format: tar.gz
     name_template: "penpal-{{ .Os }}-{{ .Arch }}"
+
+  - id: server
+    builds: [server]
+    format: tar.gz
+    name_template: "penpal-server-{{ .Os }}-{{ .Arch }}"
+
+extra_files:
+  - glob: data/graph.json
 
 changelog:
   sort: asc

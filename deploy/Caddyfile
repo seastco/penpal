@@ -1,0 +1,14 @@
+getpenpal.dev {
+    reverse_proxy localhost:8282
+    header {
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+    }
+    log {
+        output file /var/log/caddy/penpal.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+    }
+}

@@ -20,6 +20,9 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Build graph.json
+        run: go run ./cmd/preprocess -input data/us_cities_continental.json -output data/graph.json
+
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: "~> v2"
