@@ -109,7 +109,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Start send loop
 	go client.sendLoop(ctx)
 
-	// Server-side keepalive: ping every 3 min, cancel ctx if client is dead
+	// Server-side keepalive: ping every 30s, cancel ctx if client is dead
 	go client.keepAlive(ctx, cancel)
 
 	// Read loop — no per-read timeout; keepAlive detects dead connections

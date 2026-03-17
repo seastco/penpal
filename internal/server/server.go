@@ -240,7 +240,12 @@ func (h *Hub) Register(client *Client) {
 func (h *Hub) Unregister(client *Client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	delete(h.clients, client.userID.String())
+	key := client.userID.String()
+	// Only remove if this client is still the registered one.
+	// A newer connection may have already replaced us in Register.
+	if h.clients[key] == client {
+		delete(h.clients, key)
+	}
 }
 
 func (h *Hub) SendToUser(userID interface{ String() string }, msgType string, payload any) {
