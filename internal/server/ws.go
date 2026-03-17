@@ -869,18 +869,20 @@ func (c *Client) handleGetShipping(ctx context.Context, env protocol.Envelope) e
 	// Determine if this is an international route
 	isIntl := c.server.graph.Cities[fromIdx].EffectiveCountry() != c.server.graph.Cities[toIdx].EffectiveCountry()
 
+	// Compute path once — Dijkstra result is tier-independent.
+	path, dist, err := c.server.graph.Path(fromIdx, toIdx)
+	if err != nil {
+		return fmt.Errorf("route computation failed: %w", err)
+	}
+
 	var options []protocol.ShippingOption
 	for _, tier := range models.AllTiers() {
-		route, dist, err := c.server.graph.Route(fromIdx, toIdx, tier, time.Now(), isIntl)
-		if err != nil {
-			continue
-		}
 		transitDays := routing.TransitDays(dist, tier, isIntl)
 		options = append(options, protocol.ShippingOption{
 			Tier:     string(tier),
 			Days:     transitDays,
 			Distance: dist,
-			Hops:     len(route),
+			Hops:     len(path),
 		})
 	}
 

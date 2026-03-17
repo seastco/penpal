@@ -5,10 +5,21 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/stove/penpal/internal/models"
 )
+
+// dijkstraState holds reusable allocations for Dijkstra's algorithm.
+type dijkstraState struct {
+	dist []float64
+	prev []int
+}
+
+var dijkstraPool = sync.Pool{
+	New: func() any { return &dijkstraState{} },
+}
 
 // TransitDays computes the estimated delivery time in days for a given distance and tier.
 func TransitDays(dist float64, tier models.ShippingTier, international bool) float64 {
@@ -49,6 +60,27 @@ func (g *Graph) Route(fromIdx, toIdx int, tier models.ShippingTier, departureTim
 	return hops, totalDist, nil
 }
 
+// Path computes the shortest path between two cities, returning the sampled
+// city indices and total distance. Use this when you need the path without
+// scheduling hops (e.g. shipping estimates where Dijkstra is tier-independent).
+func (g *Graph) Path(fromIdx, toIdx int) ([]int, float64, error) {
+	if fromIdx < 0 || fromIdx >= len(g.Cities) {
+		return nil, 0, fmt.Errorf("invalid from city index: %d", fromIdx)
+	}
+	if toIdx < 0 || toIdx >= len(g.Cities) {
+		return nil, 0, fmt.Errorf("invalid to city index: %d", toIdx)
+	}
+	if fromIdx == toIdx {
+		return []int{fromIdx}, 0, nil
+	}
+	path, totalDist, err := g.dijkstra(fromIdx, toIdx)
+	if err != nil {
+		return nil, 0, err
+	}
+	path = samplePath(path, maxHops)
+	return path, totalDist, nil
+}
+
 // samplePath reduces a path to at most maxN waypoints, keeping the first and
 // last city. The interior is divided into buckets and one random city is picked
 // from each, so every letter takes a slightly different relay route.
@@ -77,13 +109,22 @@ func samplePath(path []int, maxN int) []int {
 // a list of city indices and the total distance.
 func (g *Graph) dijkstra(from, to int) ([]int, float64, error) {
 	n := len(g.Cities)
-	dist := make([]float64, n)
-	prev := make([]int, n)
-	for i := range dist {
-		dist[i] = math.MaxFloat64
-		prev[i] = -1
+
+	// Reuse allocations from pool to reduce GC pressure under concurrent sends.
+	state := dijkstraPool.Get().(*dijkstraState)
+	defer dijkstraPool.Put(state)
+	if cap(state.dist) < n {
+		state.dist = make([]float64, n)
+		state.prev = make([]int, n)
+	} else {
+		state.dist = state.dist[:n]
+		state.prev = state.prev[:n]
 	}
-	dist[from] = 0
+	for i := range state.dist {
+		state.dist[i] = math.MaxFloat64
+		state.prev[i] = -1
+	}
+	state.dist[from] = 0
 
 	pq := &priorityQueue{}
 	heap.Init(pq)
@@ -95,26 +136,26 @@ func (g *Graph) dijkstra(from, to int) ([]int, float64, error) {
 		if u == to {
 			break
 		}
-		if item.dist > dist[u] {
+		if item.dist > state.dist[u] {
 			continue
 		}
 		for _, e := range g.Adjacency[u] {
-			newDist := dist[u] + e.Distance
-			if newDist < dist[e.To] {
-				dist[e.To] = newDist
-				prev[e.To] = u
+			newDist := state.dist[u] + e.Distance
+			if newDist < state.dist[e.To] {
+				state.dist[e.To] = newDist
+				state.prev[e.To] = u
 				heap.Push(pq, &pqItem{node: e.To, dist: newDist})
 			}
 		}
 	}
 
-	if dist[to] == math.MaxFloat64 {
+	if state.dist[to] == math.MaxFloat64 {
 		return nil, 0, fmt.Errorf("no route from %s to %s", g.Cities[from].FullName(), g.Cities[to].FullName())
 	}
 
 	// Reconstruct path
 	var path []int
-	for u := to; u != -1; u = prev[u] {
+	for u := to; u != -1; u = state.prev[u] {
 		path = append(path, u)
 	}
 	// Reverse
@@ -122,7 +163,7 @@ func (g *Graph) dijkstra(from, to int) ([]int, float64, error) {
 		path[i], path[j] = path[j], path[i]
 	}
 
-	return path, dist[to], nil
+	return path, state.dist[to], nil
 }
 
 // scheduleHops assigns ETAs to each hop based on shipping tier.

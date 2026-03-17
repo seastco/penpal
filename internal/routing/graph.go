@@ -70,6 +70,7 @@ type Edge struct {
 type Graph struct {
 	Cities    []City   `json:"cities"`
 	Adjacency [][]Edge `json:"-"` // adjacency list, not serialized
+	coordIdx  map[[2]float64]int  // exact (lat,lng) → city index for O(1) lookup
 }
 
 // NewGraph builds a routing graph from a list of cities, connecting each city
@@ -80,7 +81,16 @@ func NewGraph(cities []City) *Graph {
 		Adjacency: make([][]Edge, len(cities)),
 	}
 	g.buildNeighborGraph()
+	g.buildCoordIndex()
 	return g
+}
+
+// buildCoordIndex populates the exact-coordinate lookup map for O(1) NearestCity.
+func (g *Graph) buildCoordIndex() {
+	g.coordIdx = make(map[[2]float64]int, len(g.Cities))
+	for i, c := range g.Cities {
+		g.coordIdx[[2]float64{c.Lat, c.Lng}] = i
+	}
 }
 
 // buildNeighborGraph connects each city to its K nearest neighbors.
@@ -192,7 +202,12 @@ func (g *Graph) SearchCities(query string, limit int) []City {
 }
 
 // NearestCity returns the index of the city closest to the given coordinates.
+// Uses O(1) lookup for exact graph coordinates (the common case), falling back
+// to a linear scan for arbitrary coordinates.
 func (g *Graph) NearestCity(lat, lng float64) int {
+	if idx, ok := g.coordIdx[[2]float64{lat, lng}]; ok {
+		return idx
+	}
 	best := -1
 	bestDist := math.MaxFloat64
 	for i, c := range g.Cities {
@@ -303,5 +318,6 @@ func LoadPrecomputedGraph(path string) (*Graph, error) {
 			g.Adjacency[i][j] = Edge{To: e.To, Distance: e.Distance}
 		}
 	}
+	g.buildCoordIndex()
 	return g, nil
 }

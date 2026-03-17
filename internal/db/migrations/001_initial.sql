@@ -48,6 +48,7 @@ CREATE INDEX idx_messages_recipient_status ON messages(recipient_id, status);
 CREATE INDEX idx_messages_sender ON messages(sender_id);
 CREATE INDEX idx_messages_sender_sent ON messages(sender_id, sent_at);
 CREATE INDEX idx_messages_release ON messages(status, release_at) WHERE status = 'in_transit';
+CREATE INDEX idx_messages_sender_recipient_sent ON messages(sender_id, recipient_id, sent_at);
 
 CREATE TABLE stamps (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
