@@ -16,11 +16,12 @@ penpal is a terminal messaging app where your letters travel across the United S
 
 ## Getting started
 
+Install
 ```bash
-# Install
 curl -fsSL https://raw.githubusercontent.com/seastco/penpal/master/install.sh | sh
-
-# Run
+```
+Run
+```
 penpal
 ```
 
@@ -34,4 +35,4 @@ Your account data lives in `~/.penpal` by default. To use a different directory:
 PENPAL_HOME=~/somewhere/else penpal
 ```
 
-**Important:** Your private key in `~/.penpal` *is* your account. If you delete that folder or lose the key, the only way to recover your account is with your 12-word recovery phrase. Write it down and keep it somewhere safe.
+**Important:** Your private key in `~/.penpal` *is* your account. If you delete that folder or lose the key, the only way to recover your account is with your 12-word recovery phrase. Keep it safe in a password manager.
