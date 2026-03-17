@@ -50,7 +50,30 @@ func (n *Network) Connect(ctx context.Context) error {
 	n.connected.Store(true)
 
 	go n.readLoop(ctx)
+	go n.pingLoop(ctx)
 	return nil
+}
+
+func (n *Network) pingLoop(ctx context.Context) {
+	ticker := time.NewTicker(3 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if !n.connected.Load() {
+				return
+			}
+			pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			err := n.conn.Ping(pingCtx)
+			cancel()
+			if err != nil {
+				n.connected.Store(false)
+				return
+			}
+		}
+	}
 }
 
 // Close closes the connection.
