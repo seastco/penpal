@@ -211,7 +211,7 @@ func screenBoxEmpty() lipgloss.Style {
 }
 
 // emptyScreenView renders an empty-state screen with footer bottom-aligned.
-func emptyScreenView(header, body, footerText string) string {
+func emptyScreenView(header, body, footerText string, indentHelp ...bool) string {
 	top := header + body
 	topLines := lipgloss.Height(top)
 	available := 13 - 2 // usable content lines (Height minus top+bottom padding)
@@ -219,7 +219,11 @@ func emptyScreenView(header, body, footerText string) string {
 	if gap < 1 {
 		gap = 1
 	}
-	content := top + strings.Repeat("\n", gap) + "  " + helpStyle.Render(footerText)
+	indent := ""
+	if len(indentHelp) > 0 && indentHelp[0] {
+		indent = "  "
+	}
+	content := top + strings.Repeat("\n", gap) + indent + helpStyle.Render(footerText)
 	return screenBoxEmpty().Render(content)
 }
 
