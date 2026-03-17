@@ -320,7 +320,7 @@ func (m SettingsModel) viewCity() string {
 		cityList += cursor + "\n"
 	}
 
-	help := "  " + helpStyle.Render("[enter] select  [ctrl+b] back")
+	help := helpStyle.Render("[enter] select  [ctrl+b] back")
 
 	content := fmt.Sprintf("%s\n%s\n\n%s\n\n%s\n%s\n\n%s",
 		title, div,

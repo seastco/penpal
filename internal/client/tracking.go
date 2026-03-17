@@ -220,9 +220,7 @@ const linesPerTransitItem = 5
 
 func (m InTransitModel) syncViewport() InTransitModel {
 	var content string
-	if m.loading {
-		content = "\n" + mutedStyle.Render("loading...")
-	} else if m.err != "" {
+	if m.err != "" {
 		content = "\n" + errorStyle.Render(m.err)
 	} else if len(m.items) == 0 {
 		content = "\n" + mutedStyle.Render("no letters in transit")
@@ -291,9 +289,7 @@ func (m InTransitModel) View() string {
 	header := title + "\n" + divider(contentWidth()) + "\n"
 	if len(m.items) == 0 {
 		body := "\n" + mutedStyle.Render("no letters in transit")
-		if m.loading {
-			body = "\n" + mutedStyle.Render("loading...")
-		} else if m.err != "" {
+		if m.err != "" {
 			body = "\n" + errorStyle.Render(m.err)
 		}
 		return emptyScreenView(header, body, "[b] back")
@@ -405,9 +401,7 @@ func (m SentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m SentModel) syncViewport() SentModel {
 	var content string
-	if m.loading {
-		content = "\n" + mutedStyle.Render("loading...")
-	} else if m.err != "" {
+	if m.err != "" {
 		content = "\n" + errorStyle.Render(m.err)
 	} else if len(m.items) == 0 {
 		content = "\n" + mutedStyle.Render("no letters yet")
@@ -451,9 +445,7 @@ func (m SentModel) View() string {
 	header := title + "\n" + divider(contentWidth()) + "\n"
 	if len(m.items) == 0 {
 		body := "\n" + mutedStyle.Render("no letters yet")
-		if m.loading {
-			body = "\n" + mutedStyle.Render("loading...")
-		} else if m.err != "" {
+		if m.err != "" {
 			body = "\n" + errorStyle.Render(m.err)
 		}
 		return emptyScreenView(header, body, "[b] back")

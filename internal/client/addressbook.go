@@ -105,9 +105,7 @@ func (m AddressBookModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m AddressBookModel) syncViewport() AddressBookModel {
 	var content string
-	if m.loading {
-		content = mutedStyle.Render("loading...")
-	} else if m.err != "" {
+	if m.err != "" {
 		content = errorStyle.Render(m.err)
 	} else if len(m.contacts) == 0 {
 		content = mutedStyle.Render("no contacts yet")
@@ -147,9 +145,7 @@ func (m AddressBookModel) View() string {
 	header += fmt.Sprintf("\nyour address: %s\n\ncontacts:\n", selectedStyle.Render(m.app.Address()))
 	if len(m.contacts) == 0 {
 		body := mutedStyle.Render("no contacts yet")
-		if m.loading {
-			body = mutedStyle.Render("loading...")
-		} else if m.err != "" {
+		if m.err != "" {
 			body = errorStyle.Render(m.err)
 		}
 		return emptyScreenView(header, body, "[a] add new  [b] back")

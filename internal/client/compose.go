@@ -539,7 +539,8 @@ func (m ComposeModel) viewRecipient() string {
 
 	// Still loading contacts
 	if m.contacts == nil {
-		return screenBox().Render(header + "\n" + mutedStyle.Render("loading..."))
+		body := "\n" + mutedStyle.Render("loading...")
+		return emptyScreenView(header, body, "[b] back")
 	}
 
 	// Empty contacts state

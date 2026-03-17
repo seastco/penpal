@@ -117,10 +117,11 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		var env protocol.Envelope
 		err := wsjson.Read(ctx, conn, &env)
 		if err != nil {
-			if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
+			status := websocket.CloseStatus(err)
+			if status == websocket.StatusNormalClosure || status == websocket.StatusGoingAway {
 				break
 			}
-			if ctx.Err() == nil {
+			if ctx.Err() == nil && !isDisconnectError(err) {
 				log.Printf("ws read error: %v", err)
 			}
 			break
@@ -131,6 +132,15 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			client.sendError(env.ReqID, err.Error())
 		}
 	}
+}
+
+// isDisconnectError returns true for errors caused by a client simply disconnecting
+// (e.g. EOF, broken pipe) which are normal and don't need to be logged.
+func isDisconnectError(err error) bool {
+	msg := err.Error()
+	return strings.Contains(msg, "EOF") ||
+		strings.Contains(msg, "broken pipe") ||
+		strings.Contains(msg, "connection reset")
 }
 
 func (c *Client) safeHandleMessage(ctx context.Context, env protocol.Envelope) (err error) {

@@ -389,9 +389,7 @@ func (m *StampsModel) buildSlots() {
 
 func (m StampsModel) syncViewport() StampsModel {
 	var content string
-	if m.loading {
-		content = "\n" + mutedStyle.Render("loading...")
-	} else if m.err != "" {
+	if m.err != "" {
 		content = "\n" + errorStyle.Render(m.err)
 	} else if m.detailMode && m.cursor < len(m.allSlots) {
 		content = m.renderDetail(m.allSlots[m.cursor])
