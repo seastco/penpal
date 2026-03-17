@@ -32,8 +32,9 @@ type Network struct {
 	connCancel context.CancelFunc
 
 	// Reconnection
-	authCreds *authCredentials
-	reconnMu  sync.Mutex
+	authCreds     *authCredentials
+	reconnMu      sync.Mutex
+	lastReconnect time.Time
 
 	// Request-response correlation
 	mu      sync.Mutex
@@ -92,6 +93,12 @@ func (n *Network) ensureConnected() error {
 		return nil
 	}
 
+	// Backoff: don't hammer the server if it's down
+	if time.Since(n.lastReconnect) < 5*time.Second {
+		return fmt.Errorf("server unavailable, retrying shortly")
+	}
+	n.lastReconnect = time.Now()
+
 	// Tear down old connection
 	if n.connCancel != nil {
 		n.connCancel()
@@ -99,6 +106,14 @@ func (n *Network) ensureConnected() error {
 	if n.conn != nil {
 		n.conn.CloseNow()
 	}
+
+	// Fail any pending requests from the old connection
+	n.mu.Lock()
+	for id, ch := range n.pending {
+		close(ch)
+		delete(n.pending, id)
+	}
+	n.mu.Unlock()
 
 	if err := n.dial(context.Background()); err != nil {
 		return fmt.Errorf("reconnect: %w", err)
@@ -164,7 +179,10 @@ func (n *Network) sendDirect(ctx context.Context, msgType protocol.MessageType, 
 	}
 
 	select {
-	case resp := <-ch:
+	case resp, ok := <-ch:
+		if !ok {
+			return protocol.Envelope{}, fmt.Errorf("connection lost")
+		}
 		if resp.Error != "" {
 			return resp, fmt.Errorf("%s", resp.Error)
 		}
@@ -195,9 +213,12 @@ func (n *Network) readLoop(ctx context.Context) {
 			}
 		}
 
-		// Push notification
+		// Push notification (recover prevents readLoop crash)
 		if n.onPush != nil {
-			n.onPush(env)
+			func() {
+				defer func() { recover() }()
+				n.onPush(env)
+			}()
 		}
 	}
 }
@@ -308,7 +329,9 @@ func (n *Network) SearchCities(ctx context.Context, query string) ([]protocol.Ci
 	}
 	data, _ := json.Marshal(resp.Payload)
 	var result protocol.CityResultsResponse
-	json.Unmarshal(data, &result)
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
 	return result.Cities, nil
 }
 
@@ -320,7 +343,9 @@ func (n *Network) GetContacts(ctx context.Context) ([]protocol.ContactItem, erro
 	}
 	data, _ := json.Marshal(resp.Payload)
 	var result protocol.ContactsResponse
-	json.Unmarshal(data, &result)
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
 	return result.Contacts, nil
 }
 
@@ -335,7 +360,9 @@ func (n *Network) AddContact(ctx context.Context, username, discriminator string
 	}
 	data, _ := json.Marshal(resp.Payload)
 	var result protocol.ContactItem
-	json.Unmarshal(data, &result)
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -352,7 +379,9 @@ func (n *Network) GetInbox(ctx context.Context, before *time.Time) (*protocol.In
 	}
 	data, _ := json.Marshal(resp.Payload)
 	var result protocol.InboxResponse
-	json.Unmarshal(data, &result)
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -369,7 +398,9 @@ func (n *Network) GetSent(ctx context.Context, before *time.Time) (*protocol.Sen
 	}
 	data, _ := json.Marshal(resp.Payload)
 	var result protocol.SentResponse
-	json.Unmarshal(data, &result)
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -381,7 +412,9 @@ func (n *Network) GetInTransit(ctx context.Context) ([]protocol.InTransitItem, e
 	}
 	data, _ := json.Marshal(resp.Payload)
 	var result protocol.InTransitResponse
-	json.Unmarshal(data, &result)
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
 	return result.Letters, nil
 }
 
@@ -393,7 +426,9 @@ func (n *Network) SendLetter(ctx context.Context, req protocol.SendLetterRequest
 	}
 	data, _ := json.Marshal(resp.Payload)
 	var result protocol.LetterSentResponse
-	json.Unmarshal(data, &result)
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 

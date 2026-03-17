@@ -126,15 +126,24 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		if err := client.handleMessage(ctx, env); err != nil {
+		if err := client.safeHandleMessage(ctx, env); err != nil {
 			log.Printf("handler error for %s: %v", env.Type, err)
 			client.sendError(env.ReqID, err.Error())
 		}
 	}
 }
 
+func (c *Client) safeHandleMessage(ctx context.Context, env protocol.Envelope) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic: %v", r)
+		}
+	}()
+	return c.handleMessage(ctx, env)
+}
+
 func (c *Client) keepAlive(ctx context.Context, cancel context.CancelFunc) {
-	ticker := time.NewTicker(3 * time.Minute)
+	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
@@ -159,8 +168,11 @@ func (c *Client) sendLoop(ctx context.Context) {
 			return
 		case env := <-c.sendCh:
 			ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
-			wsjson.Write(ctx2, c.conn, env)
+			err := wsjson.Write(ctx2, c.conn, env)
 			cancel()
+			if err != nil {
+				return
+			}
 		}
 	}
 }

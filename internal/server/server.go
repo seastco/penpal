@@ -230,7 +230,11 @@ func (h *Hub) Run(ctx context.Context) {
 func (h *Hub) Register(client *Client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.clients[client.userID.String()] = client
+	key := client.userID.String()
+	if old, ok := h.clients[key]; ok && old != client {
+		old.conn.CloseNow()
+	}
+	h.clients[key] = client
 }
 
 func (h *Hub) Unregister(client *Client) {
