@@ -250,14 +250,48 @@ func normalizeName(name string) string {
 	return name
 }
 
+// baseCityName extracts the core city name from Census-style consolidated
+// government names like "Nashville-Davidson metropolitan government (balance)"
+// or "Indianapolis city (balance)" → "nashville", "indianapolis".
+func baseCityName(name string) string {
+	name = strings.ToLower(name)
+	// Strip parenthetical suffixes: "Milford city (balance)" → "Milford city"
+	if idx := strings.Index(name, "("); idx > 0 {
+		name = strings.TrimSpace(name[:idx])
+	}
+	// Strip " city", " town", etc. suffixes added by Census
+	for _, suffix := range []string{" city", " town", " village", " borough"} {
+		name = strings.TrimSuffix(name, suffix)
+	}
+	// Take first part before hyphen/slash: "Nashville-Davidson..." → "Nashville"
+	if idx := strings.IndexAny(name, "-/"); idx > 0 {
+		name = strings.TrimSpace(name[:idx])
+	}
+	return normalizeName(name)
+}
+
 // mergePopulation updates cities in-place with population data from popCities.
-// Matches by normalized city name + state code. Returns number of cities updated.
+// Matches by normalized city name + state code. Also indexes Census consolidated
+// government names by their base city name so "Nashville-Davidson..." matches "Nashville".
+// Returns number of cities updated.
 func mergePopulation(cities []routing.City, popCities []routing.City) int {
 	lookup := make(map[string]int) // "name|state" -> population
 	for _, c := range popCities {
 		if c.Population > 0 {
-			key := normalizeName(c.Name) + "|" + strings.ToLower(c.State)
-			lookup[key] = c.Population
+			state := strings.ToLower(c.State)
+			// Index by exact normalized name
+			key := normalizeName(c.Name) + "|" + state
+			if existing, ok := lookup[key]; !ok || c.Population > existing {
+				lookup[key] = c.Population
+			}
+			// Also index by base city name for Census consolidated names
+			base := baseCityName(c.Name)
+			if base != normalizeName(c.Name) {
+				baseKey := base + "|" + state
+				if existing, ok := lookup[baseKey]; !ok || c.Population > existing {
+					lookup[baseKey] = c.Population
+				}
+			}
 		}
 	}
 	merged := 0
