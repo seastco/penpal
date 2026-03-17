@@ -14,9 +14,14 @@ if ! id penpal &>/dev/null; then
     useradd --system --shell /usr/sbin/nologin --home-dir /opt/penpal penpal
 fi
 
-echo "==> Installing PostgreSQL"
+echo "==> Installing PostgreSQL 18"
 apt-get update -qq
-apt-get install -y -qq postgresql
+apt-get install -y -qq curl ca-certificates
+install -d /usr/share/postgresql-common/pgdg
+curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list
+apt-get update -qq
+apt-get install -y -qq postgresql-18
 
 echo "==> Creating Postgres role and database"
 sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='penpal'" | grep -q 1 || \
