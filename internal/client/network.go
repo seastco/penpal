@@ -15,17 +15,31 @@ import (
 	"nhooyr.io/websocket/wsjson"
 )
 
+// authCredentials stores what's needed to re-authenticate after reconnect.
+type authCredentials struct {
+	username      string
+	discriminator string
+	privKey       ed25519.PrivateKey
+}
+
 // Network manages the WebSocket connection to the relay server.
 type Network struct {
 	serverURL string
 	conn      *websocket.Conn
 	connected atomic.Bool
 
+	connCtx    context.Context
+	connCancel context.CancelFunc
+
+	// Reconnection
+	authCreds *authCredentials
+	reconnMu  sync.Mutex
+
 	// Request-response correlation
-	mu       sync.Mutex
-	pending  map[string]chan protocol.Envelope
-	reqSeq   int64
-	writeMu  sync.Mutex // protects concurrent WebSocket writes
+	mu      sync.Mutex
+	pending map[string]chan protocol.Envelope
+	reqSeq  int64
+	writeMu sync.Mutex // protects concurrent WebSocket writes
 
 	// Push notification callback
 	onPush func(protocol.Envelope)
@@ -41,7 +55,14 @@ func NewNetwork(serverURL string) *Network {
 
 // Connect establishes the WebSocket connection.
 func (n *Network) Connect(ctx context.Context) error {
-	conn, _, err := websocket.Dial(ctx, n.serverURL+"/v1/ws", nil)
+	return n.dial(ctx)
+}
+
+func (n *Network) dial(ctx context.Context) error {
+	dialCtx, dialCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer dialCancel()
+
+	conn, _, err := websocket.Dial(dialCtx, n.serverURL+"/v1/ws", nil)
 	if err != nil {
 		return fmt.Errorf("connecting to server: %w", err)
 	}
@@ -49,35 +70,54 @@ func (n *Network) Connect(ctx context.Context) error {
 	n.conn = conn
 	n.connected.Store(true)
 
-	go n.readLoop(ctx)
-	go n.pingLoop(ctx)
+	n.connCtx, n.connCancel = context.WithCancel(context.Background())
+	go n.readLoop(n.connCtx)
 	return nil
 }
 
-func (n *Network) pingLoop(ctx context.Context) {
-	ticker := time.NewTicker(3 * time.Minute)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			if !n.connected.Load() {
-				return
-			}
-			pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-			err := n.conn.Ping(pingCtx)
-			cancel()
-			if err != nil {
-				n.connected.Store(false)
-				return
-			}
-		}
+// ensureConnected reconnects and re-authenticates if the connection is down.
+func (n *Network) ensureConnected() error {
+	if n.connected.Load() {
+		return nil
 	}
+	if n.authCreds == nil {
+		return fmt.Errorf("not connected")
+	}
+
+	n.reconnMu.Lock()
+	defer n.reconnMu.Unlock()
+
+	// Another goroutine may have reconnected while we waited for the lock.
+	if n.connected.Load() {
+		return nil
+	}
+
+	// Tear down old connection
+	if n.connCancel != nil {
+		n.connCancel()
+	}
+	if n.conn != nil {
+		n.conn.CloseNow()
+	}
+
+	if err := n.dial(context.Background()); err != nil {
+		return fmt.Errorf("reconnect: %w", err)
+	}
+
+	// Re-authenticate using sendDirect (avoids recursive reconnect)
+	if _, err := n.authenticate(n.connCtx, n.authCreds.username, n.authCreds.discriminator, n.authCreds.privKey); err != nil {
+		n.connected.Store(false)
+		return fmt.Errorf("re-auth: %w", err)
+	}
+
+	return nil
 }
 
 // Close closes the connection.
 func (n *Network) Close() {
+	if n.connCancel != nil {
+		n.connCancel()
+	}
 	if n.conn != nil {
 		n.conn.Close(websocket.StatusNormalClosure, "bye")
 		n.connected.Store(false)
@@ -85,7 +125,16 @@ func (n *Network) Close() {
 }
 
 // Send sends a request and waits for the correlated response.
+// Automatically reconnects if the connection is down.
 func (n *Network) Send(ctx context.Context, msgType protocol.MessageType, payload any) (protocol.Envelope, error) {
+	if err := n.ensureConnected(); err != nil {
+		return protocol.Envelope{}, err
+	}
+	return n.sendDirect(ctx, msgType, payload)
+}
+
+// sendDirect sends without attempting reconnection.
+func (n *Network) sendDirect(ctx context.Context, msgType protocol.MessageType, payload any) (protocol.Envelope, error) {
 	reqID := fmt.Sprintf("%d", atomic.AddInt64(&n.reqSeq, 1))
 
 	ch := make(chan protocol.Envelope, 1)
@@ -175,10 +224,21 @@ func (n *Network) Register(ctx context.Context, username string, publicKey ed255
 	return &result, nil
 }
 
-// Authenticate performs the challenge-response auth flow.
+// Authenticate performs the challenge-response auth flow and stores
+// credentials for automatic reconnection.
 func (n *Network) Authenticate(ctx context.Context, username, discriminator string, privKey ed25519.PrivateKey) (*protocol.AuthOKResponse, error) {
+	result, err := n.authenticate(ctx, username, discriminator, privKey)
+	if err != nil {
+		return nil, err
+	}
+	n.SetAuthCredentials(username, discriminator, privKey)
+	return result, nil
+}
+
+// authenticate performs the challenge-response flow using sendDirect.
+func (n *Network) authenticate(ctx context.Context, username, discriminator string, privKey ed25519.PrivateKey) (*protocol.AuthOKResponse, error) {
 	// Step 1: Request challenge
-	resp, err := n.Send(ctx, protocol.MsgAuth, protocol.AuthRequest{
+	resp, err := n.sendDirect(ctx, protocol.MsgAuth, protocol.AuthRequest{
 		Username:      username,
 		Discriminator: discriminator,
 	})
@@ -196,7 +256,7 @@ func (n *Network) Authenticate(ctx context.Context, username, discriminator stri
 	signature := ed25519.Sign(privKey, challenge.Nonce)
 
 	// Step 3: Send signature
-	resp, err = n.Send(ctx, protocol.MsgAuthResponse, protocol.AuthResponsePayload{
+	resp, err = n.sendDirect(ctx, protocol.MsgAuthResponse, protocol.AuthResponsePayload{
 		Signature: signature,
 	})
 	if err != nil {
@@ -209,6 +269,16 @@ func (n *Network) Authenticate(ctx context.Context, username, discriminator stri
 		return nil, fmt.Errorf("parsing auth ok: %w", err)
 	}
 	return &authOK, nil
+}
+
+// SetAuthCredentials stores credentials for automatic reconnection.
+// Call this after a successful Register or Recover flow.
+func (n *Network) SetAuthCredentials(username, discriminator string, privKey ed25519.PrivateKey) {
+	n.authCreds = &authCredentials{
+		username:      username,
+		discriminator: discriminator,
+		privKey:       privKey,
+	}
 }
 
 // Recover sends a recovery request with the derived public key and returns the user record.
@@ -328,8 +398,11 @@ func (n *Network) SendLetter(ctx context.Context, req protocol.SendLetterRequest
 }
 
 // SendFireAndForget writes to the WebSocket without waiting for a response.
-// No ReqID is set, so any server reply falls through to the push handler.
+// Best-effort: silently skips if disconnected (used for non-critical ops like MarkRead).
 func (n *Network) SendFireAndForget(ctx context.Context, msgType protocol.MessageType, payload any) error {
+	if !n.connected.Load() {
+		return nil
+	}
 	env := protocol.Envelope{
 		Type:    msgType,
 		Payload: payload,

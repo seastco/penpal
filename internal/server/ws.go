@@ -89,7 +89,9 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	defer conn.CloseNow()
 	conn.SetReadLimit(1 << 20) // 1 MB max message size
 
-	ctx := r.Context()
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+
 	client := &Client{
 		conn:   conn,
 		server: s,
@@ -107,24 +109,45 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Start send loop
 	go client.sendLoop(ctx)
 
-	// Handle messages (5-minute read timeout detects dead connections)
-	const wsReadTimeout = 5 * time.Minute
+	// Server-side keepalive: ping every 3 min, cancel ctx if client is dead
+	go client.keepAlive(ctx, cancel)
+
+	// Read loop — no per-read timeout; keepAlive detects dead connections
 	for {
-		readCtx, readCancel := context.WithTimeout(ctx, wsReadTimeout)
 		var env protocol.Envelope
-		err := wsjson.Read(readCtx, conn, &env)
-		readCancel()
+		err := wsjson.Read(ctx, conn, &env)
 		if err != nil {
 			if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
 				break
 			}
-			log.Printf("ws read error: %v", err)
+			if ctx.Err() == nil {
+				log.Printf("ws read error: %v", err)
+			}
 			break
 		}
 
 		if err := client.handleMessage(ctx, env); err != nil {
 			log.Printf("handler error for %s: %v", env.Type, err)
 			client.sendError(env.ReqID, err.Error())
+		}
+	}
+}
+
+func (c *Client) keepAlive(ctx context.Context, cancel context.CancelFunc) {
+	ticker := time.NewTicker(3 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			pingCtx, pingCancel := context.WithTimeout(ctx, 10*time.Second)
+			err := c.conn.Ping(pingCtx)
+			pingCancel()
+			if err != nil {
+				cancel()
+				return
+			}
 		}
 	}
 }

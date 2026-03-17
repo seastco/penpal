@@ -224,6 +224,7 @@ func (m RegisterModel) updateCity(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 					// Save username/discriminator alongside key
 					saveIdentity(m.app.Username, m.app.Discriminator)
+					m.app.Network.SetAuthCredentials(m.app.Username, resp.Discriminator, m.app.PrivateKey)
 
 					return registeredMsg{disc: resp.Discriminator}
 				}
@@ -334,6 +335,7 @@ func (m RegisterModel) updateRecover(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.app.Username = msg.user.Username
 		m.app.Discriminator = msg.user.Discriminator
 		m.app.HomeCity = msg.user.HomeCity
+		m.app.Network.SetAuthCredentials(msg.user.Username, msg.user.Discriminator, m.app.PrivateKey)
 		saveIdentity(msg.user.Username, msg.user.Discriminator)
 
 		return m, func() tea.Msg {
