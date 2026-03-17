@@ -7,7 +7,7 @@ CREATE TABLE users (
     username        TEXT NOT NULL,
     discriminator   CHAR(4) NOT NULL,
     public_key      BYTEA NOT NULL,
-    home_city       TEXT NOT NULL,
+    home_city       VARCHAR(200) NOT NULL,
     home_lat        DOUBLE PRECISION NOT NULL,
     home_lng        DOUBLE PRECISION NOT NULL,
     last_active     TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -33,7 +33,7 @@ CREATE TABLE messages (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     sender_id       UUID NOT NULL REFERENCES users(id),
     recipient_id    UUID NOT NULL REFERENCES users(id),
-    encrypted_body  BYTEA NOT NULL,
+    encrypted_body  BYTEA NOT NULL CHECK (octet_length(encrypted_body) <= 65536),
     shipping_tier   TEXT NOT NULL CHECK (shipping_tier IN ('first_class', 'priority', 'express')),
     route           JSONB NOT NULL,
     sent_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -46,6 +46,7 @@ CREATE TABLE messages (
 
 CREATE INDEX idx_messages_recipient_status ON messages(recipient_id, status);
 CREATE INDEX idx_messages_sender ON messages(sender_id);
+CREATE INDEX idx_messages_sender_sent ON messages(sender_id, sent_at);
 CREATE INDEX idx_messages_release ON messages(status, release_at) WHERE status = 'in_transit';
 
 CREATE TABLE stamps (

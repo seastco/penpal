@@ -133,6 +133,16 @@ type UpdateHomeCityRequest struct {
 	Lng  float64 `json:"lng"`
 }
 
+type GetInboxRequest struct {
+	Before *time.Time `json:"before,omitempty"` // cursor: fetch letters delivered before this time
+	Limit  int        `json:"limit,omitempty"`  // page size (default 100, max 100)
+}
+
+type GetSentRequest struct {
+	Before *time.Time `json:"before,omitempty"` // cursor: fetch letters sent before this time
+	Limit  int        `json:"limit,omitempty"`  // page size (default 100, max 100)
+}
+
 type RecoverRequest struct {
 	PublicKey []byte `json:"public_key"`
 }
@@ -177,6 +187,7 @@ type InboxItem struct {
 
 type InboxResponse struct {
 	Letters []InboxItem `json:"letters"`
+	HasMore bool        `json:"has_more"`
 }
 
 type SentItem struct {
@@ -191,6 +202,7 @@ type SentItem struct {
 
 type SentResponse struct {
 	Letters []SentItem `json:"letters"`
+	HasMore bool       `json:"has_more"`
 }
 
 type InTransitItem struct {

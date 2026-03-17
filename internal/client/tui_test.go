@@ -509,8 +509,8 @@ func TestSent_EmptyView(t *testing.T) {
 	m := NewSentModel(testApp())
 	m.loading = false
 	view := m.View()
-	if !strings.Contains(view, "no sent letters") {
-		t.Error("empty sent should show 'no sent letters'")
+	if !strings.Contains(view, "no letters yet") {
+		t.Error("empty sent should show 'no letters yet'")
 	}
 }
 

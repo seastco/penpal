@@ -311,12 +311,14 @@ type trackLetterMsg struct {
 
 // SentModel shows sent letters.
 type SentModel struct {
-	app      *AppState
-	items    []protocol.SentItem
-	cursor   int
-	viewport viewport.Model
-	loading  bool
-	err      string
+	app         *AppState
+	items       []protocol.SentItem
+	cursor      int
+	viewport    viewport.Model
+	loading     bool
+	loadingMore bool
+	hasMore     bool
+	err         string
 }
 
 func NewSentModel(app *AppState) SentModel {
@@ -327,17 +329,33 @@ func NewSentModel(app *AppState) SentModel {
 }
 
 type sentLoadedMsg struct {
-	items []protocol.SentItem
+	items   []protocol.SentItem
+	hasMore bool
+	append  bool // true = subsequent page (append to existing), false = first page (replace)
 }
 
 func (m SentModel) Init() tea.Cmd {
+	return m.fetchSent(nil, false)
+}
+
+func (m SentModel) fetchSent(before *time.Time, append bool) tea.Cmd {
 	return func() tea.Msg {
-		items, err := m.app.Network.GetSent(context.Background())
+		resp, err := m.app.Network.GetSent(context.Background(), before)
 		if err != nil {
 			return errMsg{err: err}
 		}
-		return sentLoadedMsg{items: items}
+		return sentLoadedMsg{items: resp.Letters, hasMore: resp.HasMore, append: append}
 	}
+}
+
+func (m SentModel) maybePrefetch() tea.Cmd {
+	if m.hasMore && !m.loadingMore && m.cursor >= len(m.items)-50 && len(m.items) > 0 {
+		last := m.items[len(m.items)-1]
+		cursor := last.SentAt
+		m.loadingMore = true
+		return m.fetchSent(&cursor, true)
+	}
+	return nil
 }
 
 func (m SentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -352,6 +370,8 @@ func (m SentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor < len(m.items)-1 {
 				m.cursor++
 			}
+			m = m.syncViewport()
+			return m, m.maybePrefetch()
 		case "enter":
 			if len(m.items) > 0 {
 				item := m.items[m.cursor]
@@ -366,11 +386,18 @@ func (m SentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.Width = contentWidth()
 		m.viewport.Height = viewportHeight()
 	case sentLoadedMsg:
-		m.items = msg.items
-		m.loading = false
+		if msg.append {
+			m.items = append(m.items, msg.items...)
+			m.loadingMore = false
+		} else {
+			m.items = msg.items
+			m.loading = false
+		}
+		m.hasMore = msg.hasMore
 	case errMsg:
 		m.err = msg.err.Error()
 		m.loading = false
+		m.loadingMore = false
 	}
 	m = m.syncViewport()
 	return m, nil
