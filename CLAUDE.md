@@ -70,7 +70,7 @@ The e2e test (`internal/e2e_test.go`) requires a running server and database. It
 | `PENPAL_DB` | `postgres://localhost:5432/penpal?sslmode=disable` | Postgres connection string |
 | `PENPAL_LISTEN` | `:8282` | Server listen address |
 | `PENPAL_CITIES` | `data/graph.json` | Path to precomputed city graph |
-| `PENPAL_SERVER` | `ws://localhost:8282` | Client WebSocket URL |
+| `PENPAL_SERVER` | `wss://getpenpal.dev` | Client WebSocket URL |
 | `PENPAL_HOME` | `~/.penpal` | Client config directory |
 
 ## Data Files
@@ -79,3 +79,21 @@ The e2e test (`internal/e2e_test.go`) requires a running server and database. It
 - `data/graph_dev.json` / `graph_e2e.json` — precomputed dev/test graphs
 - `data/graph.json` — full production graph (~30K cities, 11.2 MB)
 - Rebuild graph: `go run ./cmd/preprocess -input data/us_cities_continental.json -output data/graph.json`
+
+## Release & Deploy
+
+1. Commit, push to master
+2. Tag: `git tag v0.0.X && git push origin v0.0.X`
+3. GitHub Actions runs goreleaser (`.github/workflows/release.yml` + `.goreleaser.yaml`), builds client (darwin/linux, amd64/arm64) and server (linux, amd64/arm64), creates GitHub release
+4. SSH into prod server, run: `sudo bash /opt/penpal/deploy/deploy.sh v0.0.X`
+   - Downloads server binary from GitHub release to `/opt/penpal/`
+   - Restarts `penpal` systemd service
+   - `--force-graph` flag to re-download graph.json
+
+### Prod Infrastructure
+- VPS with Ubuntu 24.04, Caddy reverse proxy (TLS), PostgreSQL 18
+- Domain: `getpenpal.dev`
+- Setup script: `deploy/setup.sh` (one-time bootstrap)
+- Deploy script: `deploy/deploy.sh`
+- Systemd service: `penpal.service`
+- Daily Postgres backups to `/opt/penpal/backups/` (7-day retention)

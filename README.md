@@ -1,10 +1,8 @@
 # penpal
 
-Letters that take their time.
-
 <!-- TODO: add demo GIF -->
 
-penpal is a messaging app where your letters physically travel across the United States. Send a letter from Chicago to a friend in Portland and it hops through real cities, taking real time to arrive — days, not milliseconds. You can track it along the way. In a world of instant everything, penpal brings back the anticipation of waiting for mail.
+penpal is a terminal messaging app where your letters travel across the United States. Send a letter from Chicago to a friend in Portland and it hops through real cities, taking real time to arrive — days, not milliseconds. You can track it along the way. In a world of instant everything, penpal brings back the anticipation of waiting for mail.
 
 ## Highlights
 
