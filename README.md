@@ -26,7 +26,7 @@ curl -fsSL https://raw.githubusercontent.com/seastco/penpal/master/install.sh | 
 penpal
 ```
 
-On first launch you'll choose a username, write down your 12-word recovery phrase, and pick a home city. That's it — you're ready to start sending letters.
+On first launch you'll choose a username, write down your 12-word recovery phrase, and pick a home city. That's it. You're ready to start sending letters.
 
 ## Multiple accounts
 
