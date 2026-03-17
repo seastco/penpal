@@ -163,8 +163,15 @@ func (m ComposeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m ComposeModel) updateRecipient(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Still loading — only allow back
+		if m.contacts == nil {
+			if msg.String() == "b" || msg.String() == "esc" {
+				return m, func() tea.Msg { return switchScreenMsg{screen: m.origin} }
+			}
+			return m, nil
+		}
 		// Empty contacts state: simple key handling
-		if m.contacts != nil && len(m.contacts) == 0 {
+		if len(m.contacts) == 0 {
 			switch msg.String() {
 			case "a":
 				return m, func() tea.Msg { return switchScreenMsg{screen: ScreenAddContact} }
@@ -530,8 +537,13 @@ func (m ComposeModel) viewRecipient() string {
 	title := titleStyle.Render("COMPOSE")
 	header := title + "\n" + divider(contentWidth()) + "\n"
 
+	// Still loading contacts
+	if m.contacts == nil {
+		return screenBox().Render(header + "\n" + mutedStyle.Render("loading..."))
+	}
+
 	// Empty contacts state
-	if m.contacts != nil && len(m.contacts) == 0 {
+	if len(m.contacts) == 0 {
 		body := "\n" + mutedStyle.Render("no contacts yet")
 		return emptyScreenView(header, body, "[a] add contact  [b] back")
 	}
