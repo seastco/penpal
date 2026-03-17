@@ -2,7 +2,7 @@
 
 <!-- TODO: add demo GIF -->
 
-penpal is a terminal messaging app where your letters travel across the United States. Send a letter from Chicago to a friend in Portland and it hops through real cities, taking real time to arrive — days, not milliseconds. You can track it along the way. In a world of instant everything, penpal brings back the anticipation of waiting for mail.
+penpal is a terminal messaging app where your letters travel across the United States. Send a letter from Chicago to a friend in Portland and it hops through real cities, taking real time to arrive (days, not milliseconds). In a world of instant everything, penpal brings back the anticipation of waiting for mail.
 
 ## Highlights
 
@@ -14,24 +14,24 @@ penpal is a terminal messaging app where your letters travel across the United S
 - **12-word recovery phrase** — your account lives in a mnemonic, recoverable on any device
 - **Terminal-native** — a full TUI built with [Bubbletea](https://github.com/charmbracelet/bubbletea)
 
-## Install
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/seastco/penpal/master/install.sh | sh
-```
-
 ## Getting started
 
-```
+```bash
+# Install
+curl -fsSL https://raw.githubusercontent.com/seastco/penpal/master/install.sh | sh
+
+# Run
 penpal
 ```
 
 On first launch you'll choose a username, write down your 12-word recovery phrase, and pick a home city. That's it. You're ready to start sending letters.
 
-## Multiple accounts
+## Account location
 
-Each account lives in `~/.penpal`. To run a second account:
+Your account data lives in `~/.penpal` by default. To use a different directory:
 
 ```bash
-PENPAL_HOME=~/.penpal-alt penpal
+PENPAL_HOME=~/somewhere/else penpal
 ```
+
+**Important:** Your private key in `~/.penpal` *is* your account. If you delete that folder or lose the key, the only way to recover your account is with your 12-word recovery phrase. Write it down and keep it somewhere safe.
