@@ -33,7 +33,3 @@ Each account lives in `~/.penpal`. To run a second account:
 ```bash
 PENPAL_HOME=~/.penpal-alt penpal
 ```
-
-## License
-
-MIT
