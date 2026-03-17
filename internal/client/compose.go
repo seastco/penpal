@@ -409,20 +409,6 @@ func (m ComposeModel) updateShipping(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "1":
-			m.shippingIdx = 0
-		case "2":
-			m.shippingIdx = 1
-		case "3":
-			m.shippingIdx = 2
-		case "up", "k":
-			if m.shippingIdx > 0 {
-				m.shippingIdx--
-			}
-		case "down", "j":
-			if m.shippingIdx < 2 {
-				m.shippingIdx++
-			}
 		case "enter":
 			if m.sending {
 				return m, nil
@@ -771,15 +757,13 @@ func (m ComposeModel) viewShipping() string {
 
 	content += "\n"
 	for i, opt := range m.shippingOptions() {
-		prefix := "    "
-		if i == m.shippingIdx {
-			prefix = "> "
-		}
-		line := fmt.Sprintf("[%d] %-12s ~%.1f days", i+1, opt.name, opt.days)
-		if i == m.shippingIdx {
+		if i == 0 {
+			prefix := "> "
+			line := fmt.Sprintf("[%d] %-12s ~%.1f days", i+1, opt.name, opt.days)
 			content += selectedStyle.Render(prefix+line) + "\n"
 		} else {
-			content += "  " + line + "\n"
+			line := fmt.Sprintf("  🔒 [%d] %-12s ~%.1f days", i+1, opt.name, opt.days)
+			content += mutedStyle.Render(line) + "\n"
 		}
 	}
 
@@ -789,7 +773,7 @@ func (m ComposeModel) viewShipping() string {
 	if m.err != "" {
 		content += "\n" + errorStyle.Render(m.err) + "\n"
 	}
-	content += "\n" + helpStyle.Render("[up/dn] select  [enter] send  [b] back")
+	content += "\n" + helpStyle.Render("[enter] send  [b] back")
 	return screenBox().Render(content)
 }
 

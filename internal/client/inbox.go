@@ -199,7 +199,7 @@ func (m InboxModel) View() string {
 		return emptyScreenView(header, body, "[b] back")
 	}
 	m = m.syncViewport()
-	footer := "\n\n" + helpStyle.Render("[up/dn] select  [enter] read  [r] reply  [b] back")
+	footer := "\n\n  " + helpStyle.Render("[up/dn] select  [enter] read  [r] reply  [b] back")
 	return screenBoxFixed().Render(header + m.viewport.View() + footer)
 }
 
@@ -281,7 +281,7 @@ func (m ReadLetterModel) View() string {
 		selectedStyle.Render(m.item.SenderName), sentDate, arrDate)
 	header += "\n" + divider(contentWidth()) + "\n"
 
-	footer := "\n\n" + helpStyle.Render("[r] reply  [b] back")
+	footer := "\n\n  " + helpStyle.Render("[r] reply  [b] back")
 	return screenBoxFixed().Render(header + m.viewport.View() + footer)
 }
 

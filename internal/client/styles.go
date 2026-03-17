@@ -219,7 +219,7 @@ func emptyScreenView(header, body, footerText string) string {
 	if gap < 1 {
 		gap = 1
 	}
-	content := top + strings.Repeat("\n", gap) + helpStyle.Render(footerText)
+	content := top + strings.Repeat("\n", gap) + "  " + helpStyle.Render(footerText)
 	return screenBoxEmpty().Render(content)
 }
 

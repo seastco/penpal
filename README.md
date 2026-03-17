@@ -1,16 +1,20 @@
 # penpal
 
-A terminal messaging app where letters take real time to travel between US cities.
+Letters that take their time.
 
-<!-- TODO: add demo video -->
+<!-- TODO: add demo GIF -->
 
-## Features
+penpal is a messaging app where your letters physically travel across the United States. Send a letter from Chicago to a friend in Portland and it hops through real cities, taking real time to arrive — days, not milliseconds. You can track it along the way. In a world of instant everything, penpal brings back the anticipation of waiting for mail.
 
-- **Real-time transit** with tracking as letters hop between cities
-- **Three shipping tiers** from days to hours
-- **End-to-end encrypted** so the server never sees your messages ([details](SECURITY.md))
-- **Stamp collecting** with common, state, and rare stamps
-- **Account recovery** from a 12-word phrase on any device
+## Highlights
+
+- **Real transit** — letters travel between ~30,000 US cities at realistic speeds
+- **Live tracking** — watch your letter hop from city to city
+- **Real delivery times** — letters travel at First Class speed, arriving in days not milliseconds
+- **Stamp collecting** — earn common, state, and rare stamps as you send and receive
+- **End-to-end encrypted** — the server never sees your messages ([how it works](SECURITY.md))
+- **12-word recovery phrase** — your account lives in a mnemonic, recoverable on any device
+- **Terminal-native** — a full TUI built with [Bubbletea](https://github.com/charmbracelet/bubbletea)
 
 ## Install
 
@@ -18,15 +22,15 @@ A terminal messaging app where letters take real time to travel between US citie
 curl -fsSL https://raw.githubusercontent.com/seastco/penpal/master/install.sh | sh
 ```
 
-Then run:
+## Getting started
 
 ```
 penpal
 ```
 
-On first launch you'll register: choose a username, write down your 12-word recovery phrase, and pick a home city.
+On first launch you'll choose a username, write down your 12-word recovery phrase, and pick a home city. That's it — you're ready to start sending letters.
 
-## Multiple Accounts
+## Multiple accounts
 
 Each account lives in `~/.penpal`. To run a second account:
 

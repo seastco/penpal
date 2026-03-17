@@ -280,7 +280,7 @@ func (m PinSetupModel) View() string {
 	case 0:
 		b.WriteString(mutedStyle.Render("enter current pin") + "\n")
 		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("[b] back"))
+		b.WriteString("  " + helpStyle.Render("[b] back"))
 	case 1:
 		if m.hasPin {
 			b.WriteString(mutedStyle.Render("choose a new pin") + "\n")
@@ -289,14 +289,14 @@ func (m PinSetupModel) View() string {
 		}
 		b.WriteString("\n")
 		if m.hasPin {
-			b.WriteString(helpStyle.Render("[b] back"))
+			b.WriteString("  " + helpStyle.Render("[b] back"))
 		} else {
-			b.WriteString(helpStyle.Render("[enter] skip  [b] back"))
+			b.WriteString("  " + helpStyle.Render("[enter] skip  [b] back"))
 		}
 	case 2:
 		b.WriteString(mutedStyle.Render("confirm your pin") + "\n")
 		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("[b] start over"))
+		b.WriteString("  " + helpStyle.Render("[b] start over"))
 	}
 
 	inner := lipgloss.NewStyle().

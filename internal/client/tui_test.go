@@ -406,7 +406,7 @@ func TestCompose_PrefilledRecipient(t *testing.T) {
 	}
 }
 
-func TestCompose_ShippingNavigation(t *testing.T) {
+func TestCompose_ShippingLockedToFirstClass(t *testing.T) {
 	m := NewComposeModel(testApp())
 	m.step = 3
 
@@ -415,42 +415,18 @@ func TestCompose_ShippingNavigation(t *testing.T) {
 		t.Errorf("default shipping should be 0 (first class), got %d", m.shippingIdx)
 	}
 
-	// Press down → priority (1)
+	// Arrow keys should not change tier (locked to first class)
 	updated, _ := m.Update(keyMsg("down"))
 	cm := updated.(ComposeModel)
-	if cm.shippingIdx != 1 {
-		t.Errorf("expected 1, got %d", cm.shippingIdx)
-	}
-
-	// Press down → express (2)
-	updated, _ = cm.Update(keyMsg("down"))
-	cm = updated.(ComposeModel)
-	if cm.shippingIdx != 2 {
-		t.Errorf("expected 2, got %d", cm.shippingIdx)
-	}
-
-	// Down again shouldn't exceed 2
-	updated, _ = cm.Update(keyMsg("down"))
-	cm = updated.(ComposeModel)
-	if cm.shippingIdx != 2 {
-		t.Errorf("should stay at 2, got %d", cm.shippingIdx)
-	}
-}
-
-func TestCompose_ShippingNumberKeys(t *testing.T) {
-	m := NewComposeModel(testApp())
-	m.step = 3
-
-	updated, _ := m.Update(keyMsg("1"))
-	cm := updated.(ComposeModel)
 	if cm.shippingIdx != 0 {
-		t.Errorf("pressing 1 should select express (0), got %d", cm.shippingIdx)
+		t.Errorf("down should not change tier, expected 0, got %d", cm.shippingIdx)
 	}
 
+	// Number keys should not change tier
 	updated, _ = cm.Update(keyMsg("3"))
 	cm = updated.(ComposeModel)
-	if cm.shippingIdx != 2 {
-		t.Errorf("pressing 3 should select express (2), got %d", cm.shippingIdx)
+	if cm.shippingIdx != 0 {
+		t.Errorf("pressing 3 should not change tier, expected 0, got %d", cm.shippingIdx)
 	}
 }
 
@@ -592,6 +568,7 @@ func TestInbox_ErrorMsg(t *testing.T) {
 // --- TUI Root Tests ---
 
 func TestTUI_ScreenSwitching(t *testing.T) {
+	t.Setenv("PENPAL_HOME", t.TempDir())
 	app := testApp()
 	tui := NewTUI(app)
 

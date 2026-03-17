@@ -268,7 +268,7 @@ func (m SettingsModel) viewMenu() string {
 		rows = append(rows, cursor+label+value)
 	}
 
-	help := helpStyle.Render("[enter] edit  [b] back")
+	help := "  " + helpStyle.Render("[enter] edit  [b] back")
 
 	content := fmt.Sprintf("%s\n%s\n\n%s\n\n%s",
 		title, div,
@@ -320,7 +320,7 @@ func (m SettingsModel) viewCity() string {
 		cityList += cursor + "\n"
 	}
 
-	help := helpStyle.Render("[enter] select  [ctrl+b] back")
+	help := "  " + helpStyle.Render("[enter] select  [ctrl+b] back")
 
 	content := fmt.Sprintf("%s\n%s\n\n%s\n\n%s\n%s\n\n%s",
 		title, div,
@@ -346,7 +346,7 @@ func (m SettingsModel) viewTheme() string {
 		}
 	}
 
-	help := helpStyle.Render("[enter] apply  [b] back")
+	help := "  " + helpStyle.Render("[enter] apply  [b] back")
 
 	content := fmt.Sprintf("%s\n%s\n\n%s\n\n%s",
 		title, div,

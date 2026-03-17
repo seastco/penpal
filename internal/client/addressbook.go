@@ -23,7 +23,7 @@ type AddressBookModel struct {
 }
 
 func NewAddressBookModel(app *AppState) AddressBookModel {
-	vp := viewport.New(contentWidth(), viewportHeight()-2)
+	vp := viewport.New(contentWidth(), viewportHeight()-4)
 	vp.KeyMap = viewport.KeyMap{}
 	m := AddressBookModel{app: app, loading: true, viewport: vp}
 	return m.syncViewport()
@@ -88,7 +88,7 @@ func (m AddressBookModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.WindowSizeMsg:
 		m.viewport.Width = contentWidth()
-		m.viewport.Height = viewportHeight() - 2
+		m.viewport.Height = viewportHeight() - 3
 	case contactsLoadedMsg:
 		m.contacts = msg.contacts
 		m.loading = false

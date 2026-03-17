@@ -125,7 +125,7 @@ func (m TrackingModel) View() string {
 				m.tracking.ShippingTier, m.tracking.Distance)))
 	}
 
-	content += "\n" + helpStyle.Render("[r] refresh  [b] back")
+	content += "\n  " + helpStyle.Render("[r] refresh  [b] back")
 	return screenBox().Render(content)
 }
 
@@ -299,7 +299,7 @@ func (m InTransitModel) View() string {
 		return emptyScreenView(header, body, "[b] back")
 	}
 	m = m.syncViewport()
-	footer := "\n\n" + helpStyle.Render("[enter] view  [b] back")
+	footer := "\n\n  " + helpStyle.Render("[enter] view  [b] back")
 	return screenBoxFixed().Render(header + m.viewport.View() + footer)
 }
 
@@ -459,6 +459,6 @@ func (m SentModel) View() string {
 		return emptyScreenView(header, body, "[b] back")
 	}
 	m = m.syncViewport()
-	footer := "\n\n" + helpStyle.Render("[enter] view  [b] back")
+	footer := "\n\n  " + helpStyle.Render("[enter] view  [b] back")
 	return screenBoxFixed().Render(header + m.viewport.View() + footer)
 }

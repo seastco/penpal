@@ -373,7 +373,7 @@ func (m RegisterModel) viewChoice() string {
 			body += mutedStyle.Render("  "+opt) + "\n"
 		}
 	}
-	body += "\n" + helpStyle.Render("[enter] select  [up/down] navigate")
+	body += "\n  " + helpStyle.Render("[enter] select  [up/down] navigate")
 
 	content := title + "\n" + body
 	return screenBox().Render(content)
@@ -386,7 +386,7 @@ func (m RegisterModel) viewUsername() string {
 	if m.err != "" {
 		body += "\n" + errorStyle.Render(m.err) + "\n"
 	}
-	body += "\n" + helpStyle.Render("[enter] claim  [esc] back")
+	body += "\n  " + helpStyle.Render("[enter] claim  [esc] back")
 	content := title + "\n" + body
 	return screenBox().Render(content)
 }
@@ -407,7 +407,7 @@ func (m RegisterModel) viewSeed() string {
 			body += "\n"
 		}
 	}
-	body += "\n" + helpStyle.Render("[enter] I've written these down")
+	body += "\n  " + helpStyle.Render("[enter] I've written these down")
 
 	content := title + "\n" + divider(contentWidth()) + "\n" + body
 	return screenBox().Render(content)
@@ -444,7 +444,7 @@ func (m RegisterModel) viewCity() string {
 	if m.err != "" {
 		body += "\n" + errorStyle.Render(m.err) + "\n"
 	}
-	body += "\n" + helpStyle.Render("[enter] select  [esc] clear")
+	body += "\n  " + helpStyle.Render("[enter] select  [esc] clear")
 
 	content := title + "\n" + divider(contentWidth()) + "\n" + body
 	return screenBox().Render(content)
@@ -459,7 +459,7 @@ func (m RegisterModel) viewRecover() string {
 	if m.err != "" {
 		body += "\n" + errorStyle.Render(m.err) + "\n"
 	}
-	body += "\n" + helpStyle.Render("[enter] recover  [esc] back")
+	body += "\n  " + helpStyle.Render("[enter] recover  [esc] back")
 
 	content := title + "\n" + divider(contentWidth()) + "\n" + body
 	return screenBox().Render(content)

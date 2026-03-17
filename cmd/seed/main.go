@@ -6,9 +6,11 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -153,6 +155,15 @@ func makeRoute(from, to cityInfo, mid *cityInfo, sentAt, releaseAt time.Time) []
 }
 
 func main() {
+	userFlag := flag.String("user", "seastco#5253", "target user in name#disc format")
+	flag.Parse()
+
+	parts := strings.SplitN(*userFlag, "#", 2)
+	if len(parts) != 2 {
+		log.Fatalf("invalid user format %q, expected name#disc", *userFlag)
+	}
+	targetName, targetDisc := parts[0], parts[1]
+
 	dbURL := os.Getenv("PENPAL_DB")
 	if dbURL == "" {
 		dbURL = "postgres://localhost:5432/penpal?sslmode=disable"
@@ -166,15 +177,15 @@ func main() {
 
 	ctx := context.Background()
 
-	// Get seastco's public key
-	var seastcoPubHex []byte
-	var seastcoID uuid.UUID
-	err = db.QueryRowContext(ctx, "SELECT id, public_key FROM users WHERE username='seastco' AND discriminator='5253'").Scan(&seastcoID, &seastcoPubHex)
+	// Get target user's public key
+	var targetPubHex []byte
+	var targetID uuid.UUID
+	err = db.QueryRowContext(ctx, "SELECT id, public_key FROM users WHERE username=$1 AND discriminator=$2", targetName, targetDisc).Scan(&targetID, &targetPubHex)
 	if err != nil {
-		log.Fatal("can't find seastco#5253:", err)
+		log.Fatalf("can't find %s#%s: %v", targetName, targetDisc, err)
 	}
-	seastcoPub := ed25519.PublicKey(seastcoPubHex)
-	fmt.Printf("seastco ID: %s, pubkey: %x\n", seastcoID, seastcoPub[:8])
+	targetPub := ed25519.PublicKey(targetPubHex)
+	fmt.Printf("%s#%s ID: %s, pubkey: %x\n", targetName, targetDisc, targetID, targetPub[:8])
 
 	// Clean up previous seed data (seed users have discriminators 1001-1050)
 	fmt.Println("Cleaning previous seed data...")
@@ -224,7 +235,7 @@ func main() {
 			`INSERT INTO contacts (id, owner_id, contact_id, created_at)
 			 VALUES (gen_random_uuid(), $1, $2, NOW() - $3::interval)
 			 ON CONFLICT (owner_id, contact_id) DO NOTHING`,
-			seastcoID, id, fmt.Sprintf("%d days", 50-i))
+			targetID, id, fmt.Sprintf("%d days", 50-i))
 		if err != nil {
 			log.Fatalf("adding contact: %v", err)
 		}
@@ -240,7 +251,7 @@ func main() {
 		msgID := uuid.New()
 
 		// Encrypt: sender=peer, recipient=seastco
-		encrypted, err := pencrypto.Encrypt([]byte(body), p.priv, seastcoPub)
+		encrypted, err := pencrypto.Encrypt([]byte(body), p.priv, targetPub)
 		if err != nil {
 			log.Fatalf("encrypting message %d: %v", i, err)
 		}
@@ -258,7 +269,7 @@ func main() {
 			_, err = db.ExecContext(ctx,
 				`INSERT INTO messages (id, sender_id, recipient_id, encrypted_body, shipping_tier, route, sent_at, release_at, status)
 				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'in_transit')`,
-				msgID, p.id, seastcoID, encrypted, tier, routeJSON, sentAt, releaseAt)
+				msgID, p.id, targetID, encrypted, tier, routeJSON, sentAt, releaseAt)
 		} else if i < 30 {
 			// Delivered unread
 			sentAt := time.Now().Add(-time.Duration(i) * 6 * time.Hour)
@@ -269,7 +280,7 @@ func main() {
 			_, err = db.ExecContext(ctx,
 				`INSERT INTO messages (id, sender_id, recipient_id, encrypted_body, shipping_tier, route, sent_at, release_at, delivered_at, status)
 				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, 'delivered')`,
-				msgID, p.id, seastcoID, encrypted, tier, routeJSON, sentAt, releaseAt)
+				msgID, p.id, targetID, encrypted, tier, routeJSON, sentAt, releaseAt)
 		} else {
 			// Read
 			sentAt := time.Now().Add(-time.Duration(i) * 4 * time.Hour)
@@ -281,7 +292,7 @@ func main() {
 			_, err = db.ExecContext(ctx,
 				`INSERT INTO messages (id, sender_id, recipient_id, encrypted_body, shipping_tier, route, sent_at, release_at, delivered_at, read_at, status)
 				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, $9, 'read')`,
-				msgID, p.id, seastcoID, encrypted, tier, routeJSON, sentAt, releaseAt, readAt)
+				msgID, p.id, targetID, encrypted, tier, routeJSON, sentAt, releaseAt, readAt)
 		}
 		if err != nil {
 			log.Fatalf("inserting received message %d: %v", i, err)
@@ -321,7 +332,7 @@ func main() {
 			_, err = db.ExecContext(ctx,
 				`INSERT INTO messages (id, sender_id, recipient_id, encrypted_body, shipping_tier, route, sent_at, release_at, status)
 				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'in_transit')`,
-				msgID, seastcoID, p.id, encrypted, tier, routeJSON, sentAt, releaseAt)
+				msgID, targetID, p.id, encrypted, tier, routeJSON, sentAt, releaseAt)
 		} else if i < 40 {
 			// Delivered
 			sentAt := time.Now().Add(-time.Duration(i) * 5 * time.Hour)
@@ -332,7 +343,7 @@ func main() {
 			_, err = db.ExecContext(ctx,
 				`INSERT INTO messages (id, sender_id, recipient_id, encrypted_body, shipping_tier, route, sent_at, release_at, delivered_at, status)
 				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, 'delivered')`,
-				msgID, seastcoID, p.id, encrypted, tier, routeJSON, sentAt, releaseAt)
+				msgID, targetID, p.id, encrypted, tier, routeJSON, sentAt, releaseAt)
 		} else {
 			// Read
 			sentAt := time.Now().Add(-time.Duration(i) * 3 * time.Hour)
@@ -344,7 +355,7 @@ func main() {
 			_, err = db.ExecContext(ctx,
 				`INSERT INTO messages (id, sender_id, recipient_id, encrypted_body, shipping_tier, route, sent_at, release_at, delivered_at, read_at, status)
 				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, $9, 'read')`,
-				msgID, seastcoID, p.id, encrypted, tier, routeJSON, sentAt, releaseAt, readAt)
+				msgID, targetID, p.id, encrypted, tier, routeJSON, sentAt, releaseAt, readAt)
 		}
 		if err != nil {
 			log.Fatalf("inserting sent message %d: %v", i, err)
@@ -366,7 +377,7 @@ func main() {
 		_, err := db.ExecContext(ctx,
 			`INSERT INTO stamps (id, owner_id, stamp_type, rarity, earned_via, created_at)
 			 VALUES (gen_random_uuid(), $1, $2, 'common', 'registration', NOW() - $3::interval)`,
-			seastcoID, st, fmt.Sprintf("%d days", 30-i))
+			targetID, st, fmt.Sprintf("%d days", 30-i))
 		if err != nil {
 			log.Printf("stamp %s: %v", st, err)
 		}
@@ -386,7 +397,7 @@ func main() {
 			_, err := db.ExecContext(ctx,
 				`INSERT INTO stamps (id, owner_id, stamp_type, rarity, earned_via, created_at)
 				 VALUES (gen_random_uuid(), $1, $2, 'common', 'weekly', NOW() - $3::interval)`,
-				seastcoID, st, fmt.Sprintf("%d days", 20-i-c))
+				targetID, st, fmt.Sprintf("%d days", 20-i-c))
 			if err != nil {
 				log.Printf("stamp %s: %v", st, err)
 			}
@@ -400,7 +411,7 @@ func main() {
 		_, err := db.ExecContext(ctx,
 			`INSERT INTO stamps (id, owner_id, stamp_type, rarity, earned_via, created_at)
 			 VALUES (gen_random_uuid(), $1, $2, 'rare', 'transfer', NOW() - $3::interval)`,
-			seastcoID, st, fmt.Sprintf("%d days", 10-i))
+			targetID, st, fmt.Sprintf("%d days", 10-i))
 		if err != nil {
 			log.Printf("stamp %s: %v", st, err)
 		}
