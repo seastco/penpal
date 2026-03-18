@@ -343,8 +343,10 @@ func TestEndToEnd(t *testing.T) {
 	t.Logf("Jake decrypted: %q", string(decrypted)[:50]+"...")
 
 	// ===== Step 14: City search =====
+	// Use clientA3 (last authenticated Steven session) since clientA's
+	// connection was closed when clientA2 re-authenticated as Steven.
 	t.Log("=== City search ===")
-	cityResp := clientA.send(t, protocol.MsgSearchCities, protocol.SearchCitiesRequest{
+	cityResp := clientA3.send(t, protocol.MsgSearchCities, protocol.SearchCitiesRequest{
 		Query: "den",
 		Limit: 3,
 	})
