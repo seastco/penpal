@@ -19,8 +19,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"github.com/google/uuid"
-	"github.com/stove/penpal/internal/client"
-	pencrypto "github.com/stove/penpal/internal/crypto"
+	"github.com/seastco/penpal/internal/client"
+	pencrypto "github.com/seastco/penpal/internal/crypto"
 )
 
 var version = "dev"

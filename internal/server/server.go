@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
-	"github.com/stove/penpal/internal/db"
-	"github.com/stove/penpal/internal/routing"
+	"github.com/seastco/penpal/internal/db"
+	"github.com/seastco/penpal/internal/routing"
 )
 
 // Config holds server configuration.
@@ -45,6 +46,17 @@ func New(cfg Config) (*Server, error) {
 	log.Printf("loaded city graph: %d cities", len(graph.Cities))
 	if len(graph.Cities) == 0 {
 		return nil, fmt.Errorf("city graph is empty — check %s", cfg.CityGraph)
+	}
+
+	// Initialize system keypair for welcome letters
+	if mnemonic := os.Getenv("PENPAL_SYSTEM_MNEMONIC"); mnemonic != "" {
+		if err := InitSystemKeypair(mnemonic); err != nil {
+			log.Printf("warning: system keypair init failed: %v", err)
+		} else {
+			log.Println("system keypair initialized — welcome letters enabled")
+		}
+	} else {
+		log.Println("warning: PENPAL_SYSTEM_MNEMONIC not set, welcome letters disabled")
 	}
 
 	s := &Server{

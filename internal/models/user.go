@@ -6,6 +6,9 @@ import (
 	"github.com/google/uuid"
 )
 
+// SystemUserID is the fixed UUID for the penpal#0000 system account.
+var SystemUserID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+
 // User represents a registered penpal user.
 type User struct {
 	ID            uuid.UUID `json:"id" db:"id"`

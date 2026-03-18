@@ -7,8 +7,8 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	pencrypto "github.com/stove/penpal/internal/crypto"
-	"github.com/stove/penpal/internal/protocol"
+	pencrypto "github.com/seastco/penpal/internal/crypto"
+	"github.com/seastco/penpal/internal/protocol"
 )
 
 type settingsMode int

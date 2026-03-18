@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/stove/penpal/internal/protocol"
+	"github.com/seastco/penpal/internal/protocol"
 )
 
 // AddressBookModel shows the user's contacts.

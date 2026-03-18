@@ -10,8 +10,8 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
-	"github.com/stove/penpal/internal/models"
-	"github.com/stove/penpal/internal/protocol"
+	"github.com/seastco/penpal/internal/models"
+	"github.com/seastco/penpal/internal/protocol"
 )
 
 type trackingTickMsg time.Time

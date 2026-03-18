@@ -5,8 +5,8 @@ import (
 
 	"github.com/charmbracelet/glamour"
 	"github.com/google/uuid"
-	"github.com/stove/penpal/internal/models"
-	"github.com/stove/penpal/internal/protocol"
+	"github.com/seastco/penpal/internal/models"
+	"github.com/seastco/penpal/internal/protocol"
 )
 
 // AppState holds the shared application state for the TUI.

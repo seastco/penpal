@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"github.com/stove/penpal/internal/models"
+	"github.com/seastco/penpal/internal/models"
 )
 
 //go:embed migrations/*.sql
@@ -324,6 +324,27 @@ func (d *DB) CreateMessage(ctx context.Context, msg *models.Message, stampIDs []
 	}
 
 	return tx.Commit()
+}
+
+// CreateWelcomeMessage inserts an already-delivered system message (no stamps, no transaction).
+func (d *DB) CreateWelcomeMessage(ctx context.Context, msg *models.Message) error {
+	routeJSON, err := json.Marshal(msg.Route)
+	if err != nil {
+		return fmt.Errorf("marshaling route: %w", err)
+	}
+	now := time.Now()
+	err = d.pool.QueryRowContext(ctx,
+		`INSERT INTO messages (sender_id, recipient_id, encrypted_body, shipping_tier, route, release_at, delivered_at, status)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, 'delivered')
+		 RETURNING id, sent_at`,
+		msg.SenderID, msg.RecipientID, msg.EncryptedBody, msg.ShippingTier, routeJSON, msg.ReleaseAt, now,
+	).Scan(&msg.ID, &msg.SentAt)
+	if err != nil {
+		return fmt.Errorf("inserting welcome message: %w", err)
+	}
+	msg.Status = "delivered"
+	msg.DeliveredAt = &now
+	return nil
 }
 
 // DeliverMessages finds all in_transit messages past their release_at and marks them delivered.

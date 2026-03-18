@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"os"
@@ -13,12 +14,29 @@ import (
 
 	_ "time/tzdata" // embed timezone database for systems without it
 
-	"github.com/stove/penpal/internal/db"
-	"github.com/stove/penpal/internal/models"
-	"github.com/stove/penpal/internal/server"
+	pencrypto "github.com/seastco/penpal/internal/crypto"
+	"github.com/seastco/penpal/internal/db"
+	"github.com/seastco/penpal/internal/models"
+	"github.com/seastco/penpal/internal/server"
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "gen-system-key" {
+		mnemonic, err := pencrypto.GenerateMnemonic()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		pub, _, err := pencrypto.KeypairFromMnemonic(mnemonic)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Mnemonic (store in PENPAL_SYSTEM_MNEMONIC):\n  %s\n\n", mnemonic)
+		fmt.Printf("Public key hex (for migration SQL):\n  %s\n", hex.EncodeToString(pub))
+		return
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "mint" {
 		if err := runMint(os.Args[2:]); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)

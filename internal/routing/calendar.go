@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/stove/penpal/internal/models"
+	"github.com/seastco/penpal/internal/models"
 )
 
 // --- Timezone (cached) ---

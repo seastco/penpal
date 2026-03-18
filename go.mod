@@ -1,4 +1,4 @@
-module github.com/stove/penpal
+module github.com/seastco/penpal
 
 go 1.26.1
 

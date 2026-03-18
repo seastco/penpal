@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	pencrypto "github.com/stove/penpal/internal/crypto"
+	pencrypto "github.com/seastco/penpal/internal/crypto"
 )
 
 // Draft represents a saved letter draft.

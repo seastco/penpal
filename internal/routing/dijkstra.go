@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stove/penpal/internal/models"
+	"github.com/seastco/penpal/internal/models"
 )
 
 // dijkstraState holds reusable allocations for Dijkstra's algorithm.

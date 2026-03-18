@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	pencrypto "github.com/stove/penpal/internal/crypto"
+	pencrypto "github.com/seastco/penpal/internal/crypto"
 )
 
 // identityFile stores username and discriminator alongside the key.

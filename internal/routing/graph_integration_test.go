@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stove/penpal/internal/models"
+	"github.com/seastco/penpal/internal/models"
 )
 
 func TestPrecomputedGraph(t *testing.T) {

@@ -21,8 +21,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stove/penpal/internal/models"
-	"github.com/stove/penpal/internal/routing"
+	"github.com/seastco/penpal/internal/models"
+	"github.com/seastco/penpal/internal/routing"
 )
 
 func main() {

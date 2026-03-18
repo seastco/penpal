@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/stove/penpal/internal/protocol"
+	"github.com/seastco/penpal/internal/protocol"
 )
 
 func TestHub_RegisterAndSend(t *testing.T) {
