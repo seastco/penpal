@@ -31,16 +31,14 @@ builds:
 
 archives:
   - id: client
-    builds: [penpal]
-    format: tar.gz
+    ids: [penpal]
+    name_template: "penpal-{{ .Os }}-{{ .Arch }}"
     format_overrides:
       - goos: windows
-        format: zip
-    name_template: "penpal-{{ .Os }}-{{ .Arch }}"
+        formats: [zip]
 
   - id: server
-    builds: [server]
-    format: tar.gz
+    ids: [server]
     name_template: "penpal-server-{{ .Os }}-{{ .Arch }}"
 
 release:

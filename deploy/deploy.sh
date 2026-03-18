@@ -58,9 +58,6 @@ trap "rm -rf $TMPDIR" EXIT
 
 curl -sfL -o "${TMPDIR}/${ARCHIVE}" "$URL"
 tar -xzf "${TMPDIR}/${ARCHIVE}" -C "$TMPDIR"
-cp "${TMPDIR}/penpal-server" "${INSTALL_DIR}/penpal-server"
-chown penpal:penpal "${INSTALL_DIR}/penpal-server"
-chmod 755 "${INSTALL_DIR}/penpal-server"
 
 # Download graph.json if missing or forced
 if [ ! -f "${INSTALL_DIR}/graph.json" ] || [ "$FORCE_GRAPH" = true ]; then
@@ -70,8 +67,16 @@ if [ ! -f "${INSTALL_DIR}/graph.json" ] || [ "$FORCE_GRAPH" = true ]; then
     chown penpal:penpal "${INSTALL_DIR}/graph.json"
 fi
 
-echo "==> Restarting penpal service"
-systemctl restart penpal
+# Stop service before overwriting binary (avoids "Text file busy" error)
+echo "==> Stopping penpal service"
+systemctl stop penpal
+
+cp "${TMPDIR}/penpal-server" "${INSTALL_DIR}/penpal-server"
+chown penpal:penpal "${INSTALL_DIR}/penpal-server"
+chmod 755 "${INSTALL_DIR}/penpal-server"
+
+echo "==> Starting penpal service"
+systemctl start penpal
 
 echo "==> Deploy complete"
 systemctl status penpal --no-pager
