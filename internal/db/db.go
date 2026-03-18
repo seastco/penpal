@@ -408,32 +408,17 @@ type InboxRow struct {
 // GetInboxWithSenders returns delivered messages with sender info, newest first.
 // If before is non-nil, only returns messages delivered before that timestamp (cursor pagination).
 func (d *DB) GetInboxWithSenders(ctx context.Context, userID uuid.UUID, before *time.Time, limit int) ([]InboxRow, error) {
-	var rows *sql.Rows
-	var err error
-	if before != nil {
-		rows, err = d.pool.QueryContext(ctx,
-			`SELECT m.id, m.sender_id, m.recipient_id, m.encrypted_body, m.shipping_tier, m.route,
-			        m.sent_at, m.release_at, m.delivered_at, m.read_at, m.status,
-			        u.username, u.public_key
-			 FROM messages m
-			 JOIN users u ON u.id = m.sender_id
-			 WHERE m.recipient_id = $1 AND m.status IN ('delivered', 'read')
-			   AND m.delivered_at < $2
-			 ORDER BY m.delivered_at DESC
-			 LIMIT $3`, userID, *before, limit,
-		)
-	} else {
-		rows, err = d.pool.QueryContext(ctx,
-			`SELECT m.id, m.sender_id, m.recipient_id, m.encrypted_body, m.shipping_tier, m.route,
-			        m.sent_at, m.release_at, m.delivered_at, m.read_at, m.status,
-			        u.username, u.public_key
-			 FROM messages m
-			 JOIN users u ON u.id = m.sender_id
-			 WHERE m.recipient_id = $1 AND m.status IN ('delivered', 'read')
-			 ORDER BY m.delivered_at DESC
-			 LIMIT $2`, userID, limit,
-		)
-	}
+	rows, err := d.pool.QueryContext(ctx,
+		`SELECT m.id, m.sender_id, m.recipient_id, m.encrypted_body, m.shipping_tier, m.route,
+		        m.sent_at, m.release_at, m.delivered_at, m.read_at, m.status,
+		        u.username, u.public_key
+		 FROM messages m
+		 JOIN users u ON u.id = m.sender_id
+		 WHERE m.recipient_id = $1 AND m.status IN ('delivered', 'read')
+		   AND ($2::TIMESTAMPTZ IS NULL OR m.delivered_at < $2)
+		 ORDER BY m.delivered_at DESC
+		 LIMIT $3`, userID, before, limit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -457,7 +442,7 @@ func (d *DB) GetInboxWithSenders(ctx context.Context, userID uuid.UUID, before *
 // GetStampsForMessages returns stamps attached to any of the given message IDs, keyed by message ID.
 func (d *DB) GetStampsForMessages(ctx context.Context, msgIDs []uuid.UUID) (map[uuid.UUID][]models.Stamp, error) {
 	if len(msgIDs) == 0 {
-		return nil, nil
+		return make(map[uuid.UUID][]models.Stamp), nil
 	}
 	rows, err := d.pool.QueryContext(ctx,
 		`SELECT s.id, s.owner_id, s.stamp_type, s.rarity, s.earned_via, s.source_msg, s.created_at,
@@ -494,32 +479,17 @@ type SentRow struct {
 // GetSentWithRecipients returns sent messages with recipient name, newest first.
 // If before is non-nil, only returns messages sent before that timestamp (cursor pagination).
 func (d *DB) GetSentWithRecipients(ctx context.Context, userID uuid.UUID, before *time.Time, limit int) ([]SentRow, error) {
-	var rows *sql.Rows
-	var err error
-	if before != nil {
-		rows, err = d.pool.QueryContext(ctx,
-			`SELECT m.id, m.sender_id, m.recipient_id, m.encrypted_body, m.shipping_tier, m.route,
-			        m.sent_at, m.release_at, m.delivered_at, m.read_at, m.status,
-			        u.username
-			 FROM messages m
-			 JOIN users u ON u.id = m.recipient_id
-			 WHERE m.sender_id = $1
-			   AND m.sent_at < $2
-			 ORDER BY m.sent_at DESC
-			 LIMIT $3`, userID, *before, limit,
-		)
-	} else {
-		rows, err = d.pool.QueryContext(ctx,
-			`SELECT m.id, m.sender_id, m.recipient_id, m.encrypted_body, m.shipping_tier, m.route,
-			        m.sent_at, m.release_at, m.delivered_at, m.read_at, m.status,
-			        u.username
-			 FROM messages m
-			 JOIN users u ON u.id = m.recipient_id
-			 WHERE m.sender_id = $1
-			 ORDER BY m.sent_at DESC
-			 LIMIT $2`, userID, limit,
-		)
-	}
+	rows, err := d.pool.QueryContext(ctx,
+		`SELECT m.id, m.sender_id, m.recipient_id, m.encrypted_body, m.shipping_tier, m.route,
+		        m.sent_at, m.release_at, m.delivered_at, m.read_at, m.status,
+		        u.username
+		 FROM messages m
+		 JOIN users u ON u.id = m.recipient_id
+		 WHERE m.sender_id = $1
+		   AND ($2::TIMESTAMPTZ IS NULL OR m.sent_at < $2)
+		 ORDER BY m.sent_at DESC
+		 LIMIT $3`, userID, before, limit,
+	)
 	if err != nil {
 		return nil, err
 	}

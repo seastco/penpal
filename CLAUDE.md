@@ -72,6 +72,8 @@ The e2e test (`internal/e2e_test.go`) requires a running server and database. It
 | `PENPAL_CITIES` | `data/graph.json` | Path to precomputed city graph |
 | `PENPAL_SERVER` | `wss://getpenpal.dev` | Client WebSocket URL |
 | `PENPAL_HOME` | `~/.penpal` | Client config directory |
+| `PENPAL_TRUST_PROXY` | `false` | Trust X-Forwarded-For for client IP (set `true` behind reverse proxy) |
+| `PENPAL_SYSTEM_MNEMONIC` | *(none)* | BIP39 mnemonic for system user; enables welcome letters on registration |
 
 ## Data Files
 

@@ -91,9 +91,6 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 	log.Println("database migrations complete")
 
-	// Start WebSocket hub
-	go s.hub.Run(ctx)
-
 	// Start rate limiter cleanup
 	go s.limiter.StartCleanup(ctx.Done())
 
@@ -233,10 +230,6 @@ func NewHub() *Hub {
 	return &Hub{
 		clients: make(map[string]*Client),
 	}
-}
-
-func (h *Hub) Run(ctx context.Context) {
-	<-ctx.Done()
 }
 
 func (h *Hub) Register(client *Client) {
