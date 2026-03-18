@@ -56,7 +56,7 @@ The e2e test (`internal/e2e_test.go`) requires a running server and database. It
 ### Database
 - Postgres with embedded SQL migrations (`internal/db/migrations/`, `//go:embed`)
 - Migrations auto-run on server startup via `db.Migrate(ctx)`
-- **During development: modify 001_initial.sql directly instead of adding new migration files.** Drop and recreate the DB (`dropdb penpal && createdb penpal`) to apply changes.
+- **Migrations are append-only.** Add new numbered files (002_xxx.sql, 003_xxx.sql, etc.) for schema changes. Never modify already-deployed migration files. For local dev, `dropdb penpal && createdb penpal` will apply all migrations from scratch.
 
 ### TUI (Bubbletea)
 - `TUI` main model manages screen transitions; each screen implements `tea.Model`

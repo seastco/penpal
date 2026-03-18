@@ -26,7 +26,7 @@ const (
 // Stamp represents a collectible stamp owned by a user.
 type Stamp struct {
 	ID        uuid.UUID   `json:"id" db:"id"`
-	OwnerID   uuid.UUID   `json:"owner_id" db:"owner_id"`
+	OwnerID   *uuid.UUID  `json:"owner_id,omitempty" db:"owner_id"`
 	StampType string      `json:"stamp_type" db:"stamp_type"`
 	Rarity    StampRarity `json:"rarity" db:"rarity"`
 	EarnedVia EarnedVia   `json:"earned_via" db:"earned_via"`

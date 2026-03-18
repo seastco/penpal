@@ -122,7 +122,6 @@ func (m InboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.WindowSizeMsg:
 		m.viewport.Width = contentWidth()
-		m.viewport.Height = viewportHeight()
 	case inboxLoadedMsg:
 		if msg.append {
 			m.items = append(m.items, msg.items...)
@@ -142,6 +141,9 @@ func (m InboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m InboxModel) syncViewport() InboxModel {
+	bh := adaptiveBoxHeight(len(m.items), 6)
+	m.viewport.Height = bh - 6
+
 	var content string
 	if m.err != "" {
 		content = "\n" + errorStyle.Render(m.err)
@@ -195,8 +197,9 @@ func (m InboxModel) View() string {
 		return emptyScreenView(header, body, "[b] back")
 	}
 	m = m.syncViewport()
+	bh := adaptiveBoxHeight(len(m.items), 6)
 	footer := "\n\n" + helpStyle.Render("[up/dn] select  [enter] read  [r] reply  [b] back")
-	return screenBoxFixed().Render(header + m.viewport.View() + footer)
+	return screenBox().Height(bh).Render(header + m.viewport.View() + footer)
 }
 
 // --- Read Letter ---

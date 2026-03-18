@@ -39,6 +39,37 @@ var commonStampPool = []string{
 	"common:moon", "common:bird", "common:rainbow", "common:clover",
 }
 
+// allStateStamps is the set of all 50 US state stamps.
+var allStateStamps = []string{
+	"state:ak", "state:al", "state:ar", "state:az", "state:ca",
+	"state:co", "state:ct", "state:de", "state:fl", "state:ga",
+	"state:hi", "state:ia", "state:id", "state:il", "state:in",
+	"state:ks", "state:ky", "state:la", "state:ma", "state:md",
+	"state:me", "state:mi", "state:mn", "state:mo", "state:ms",
+	"state:mt", "state:nc", "state:nd", "state:ne", "state:nh",
+	"state:nj", "state:nm", "state:nv", "state:ny", "state:oh",
+	"state:ok", "state:or", "state:pa", "state:ri", "state:sc",
+	"state:sd", "state:tn", "state:tx", "state:ut", "state:va",
+	"state:vt", "state:wa", "state:wi", "state:wv", "state:wy",
+}
+
+// pickNDistinct returns n distinct random elements from pool using partial Fisher-Yates.
+func pickNDistinct(pool []string, n int) []string {
+	if n >= len(pool) {
+		shuffled := make([]string, len(pool))
+		copy(shuffled, pool)
+		mathrand.Shuffle(len(shuffled), func(i, j int) { shuffled[i], shuffled[j] = shuffled[j], shuffled[i] })
+		return shuffled
+	}
+	tmp := make([]string, len(pool))
+	copy(tmp, pool)
+	for i := 0; i < n; i++ {
+		j := i + mathrand.Intn(len(tmp)-i)
+		tmp[i], tmp[j] = tmp[j], tmp[i]
+	}
+	return tmp[:n]
+}
+
 // knownCountryCodes maps ISO 3166-1 alpha-2 codes for supported international countries.
 var knownCountryCodes = map[string]bool{
 	"ES": true, // Spain
@@ -298,17 +329,13 @@ func (c *Client) handleRegister(ctx context.Context, env protocol.Envelope) erro
 		return fmt.Errorf("registration failed: %w", err)
 	}
 
-	// Award 2 distinct random common stamps
-	pick1 := mathrand.Intn(len(commonStampPool))
-	pick2 := mathrand.Intn(len(commonStampPool) - 1)
-	if pick2 >= pick1 {
-		pick2++
+	// Award 3 distinct random common stamps
+	for _, st := range pickNDistinct(commonStampPool, 3) {
+		c.server.db.CreateStamp(ctx, user.ID, st, models.RarityCommon, models.EarnedRegistration)
 	}
-	c.server.db.CreateStamp(ctx, user.ID, commonStampPool[pick1], models.RarityCommon, models.EarnedRegistration)
-	c.server.db.CreateStamp(ctx, user.ID, commonStampPool[pick2], models.RarityCommon, models.EarnedRegistration)
 
-	// Award home state/country stamp
-	if st := homeStampType(req.HomeCity); st != "" {
+	// Award 5 distinct random state stamps
+	for _, st := range pickNDistinct(allStateStamps, 5) {
 		c.server.db.CreateStamp(ctx, user.ID, st, models.RarityCommon, models.EarnedRegistration)
 	}
 
@@ -423,13 +450,6 @@ func (c *Client) handleSendLetter(ctx context.Context, env protocol.Envelope) er
 	if len(req.EncryptedBody) > 64*1024 {
 		return fmt.Errorf("message too large")
 	}
-	if len(req.StampIDs) == 0 {
-		return fmt.Errorf("at least one stamp is required")
-	}
-	if len(req.StampIDs) > 5 {
-		return fmt.Errorf("too many stamps attached (max 5)")
-	}
-
 	// Validate sender has recipient as contact
 	isContact, err := c.server.db.IsContact(ctx, c.userID, req.RecipientID)
 	if err != nil {
@@ -483,6 +503,12 @@ func (c *Client) handleSendLetter(ctx context.Context, env protocol.Envelope) er
 		return fmt.Errorf("invalid shipping tier: %s", req.ShippingTier)
 	}
 
+	// Validate stamp count matches tier requirement
+	required := tier.StampsRequired()
+	if len(req.StampIDs) != required {
+		return fmt.Errorf("%s requires exactly %d stamp(s)", tier.DisplayName(), required)
+	}
+
 	// Determine if this is an international route
 	isIntl := c.server.graph.Cities[fromIdx].EffectiveCountry() != c.server.graph.Cities[toIdx].EffectiveCountry()
 
@@ -517,8 +543,7 @@ func (c *Client) handleSendLetter(ctx context.Context, env protocol.Envelope) er
 	return nil
 }
 
-// awardWeeklyStamp awards 1 random stamp if 7+ days since last weekly award.
-// Pool: 12 common stamps + user's home state/country stamp.
+// awardWeeklyStamp awards 2 random common/state stamps if 7+ days since last weekly award.
 func (s *Server) awardWeeklyStamp(ctx context.Context, userID uuid.UUID, homeCity string) {
 	lastWeekly, err := s.db.GetLastWeeklyStampTime(ctx, userID)
 	if err != nil {
@@ -527,17 +552,20 @@ func (s *Server) awardWeeklyStamp(ctx context.Context, userID uuid.UUID, homeCit
 	if time.Since(lastWeekly) < 7*24*time.Hour {
 		return
 	}
-	pool := make([]string, len(commonStampPool))
-	copy(pool, commonStampPool)
-	if st := homeStampType(homeCity); st != "" {
-		pool = append(pool, st)
+
+	// Pool = all common + all state stamps
+	pool := make([]string, 0, len(commonStampPool)+len(allStateStamps))
+	pool = append(pool, commonStampPool...)
+	pool = append(pool, allStateStamps...)
+
+	// Award 2 distinct random stamps
+	for _, pick := range pickNDistinct(pool, 2) {
+		stamp, err := s.db.CreateStamp(ctx, userID, pick, models.RarityCommon, models.EarnedWeekly)
+		if err != nil {
+			return
+		}
+		s.hub.SendToUser(userID, "stamp_awarded", protocol.StampAwardedPush{Stamp: *stamp})
 	}
-	pick := pool[mathrand.Intn(len(pool))]
-	stamp, err := s.db.CreateStamp(ctx, userID, pick, models.RarityCommon, models.EarnedWeekly)
-	if err != nil {
-		return
-	}
-	s.hub.SendToUser(userID, "stamp_awarded", protocol.StampAwardedPush{Stamp: *stamp})
 }
 
 func (c *Client) handleGetInbox(ctx context.Context, env protocol.Envelope) error {
@@ -741,12 +769,21 @@ func (c *Client) handleAddContact(ctx context.Context, env protocol.Envelope) er
 		return fmt.Errorf("invalid add contact request: %w", err)
 	}
 
-	contact, err := c.server.db.GetUserByAddress(ctx, req.Username, strings.TrimSpace(req.Discriminator))
-	if err != nil {
-		return err
-	}
-	if contact == nil {
-		return fmt.Errorf("user not found: %s#%s", req.Username, req.Discriminator)
+	var contact *models.User
+	var err error
+	if req.UserID != uuid.Nil {
+		contact, err = c.server.db.GetUserByID(ctx, req.UserID)
+		if err != nil || contact == nil {
+			return fmt.Errorf("user not found")
+		}
+	} else {
+		contact, err = c.server.db.GetUserByAddress(ctx, req.Username, strings.TrimSpace(req.Discriminator))
+		if err != nil {
+			return err
+		}
+		if contact == nil {
+			return fmt.Errorf("user not found: %s#%s", req.Username, req.Discriminator)
+		}
 	}
 	if contact.ID == c.userID {
 		return fmt.Errorf("cannot add yourself as a contact")

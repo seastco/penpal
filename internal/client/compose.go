@@ -21,7 +21,7 @@ import (
 // ComposeModel handles the letter composition flow.
 type ComposeModel struct {
 	app  *AppState
-	step int // 0=recipient, 1=body, 2=stamp, 3=shipping
+	step int // 0=recipient, 1=body, 2=shipping, 3=stamps
 
 	// Recipient
 	recipientInput textinput.Model
@@ -34,14 +34,15 @@ type ComposeModel struct {
 	// Body
 	bodyArea textarea.Model
 
-	// Stamp selection
-	stamps        []models.Stamp
-	stampCursor   int
-	selectedStamp *models.Stamp
-
 	// Shipping
 	shippingInfo *protocol.ShippingInfoResponse
 	shippingIdx  int
+
+	// Stamp selection (multi-select)
+	stamps         []models.Stamp
+	stampCursor    int
+	selectedStamps map[uuid.UUID]bool
+	requiredStamps int // how many stamps the chosen tier needs
 
 	err           string
 	sending       bool
@@ -52,6 +53,10 @@ type ComposeModel struct {
 	originalSender   string
 	showingOriginal  bool
 	originalViewport viewport.Model
+
+	// Contact status for reply-to-unknown
+	recipientIsContact bool
+	addedContact       bool
 
 	origin Screen // screen to return to on Esc
 }
@@ -75,7 +80,8 @@ func NewComposeModel(app *AppState) ComposeModel {
 		app:            app,
 		recipientInput: ri,
 		bodyArea:       ta,
-		shippingIdx:    0, // default to first class (cheapest)
+		shippingIdx:    0,
+		selectedStamps: make(map[uuid.UUID]bool),
 		origin:         ScreenHome,
 	}
 }
@@ -128,6 +134,8 @@ type letterSentMsg struct {
 	resp *protocol.LetterSentResponse
 }
 
+type contactAddedInComposeMsg struct{}
+
 func (m ComposeModel) Init() tea.Cmd {
 	return tea.Batch(textinput.Blink, func() tea.Msg {
 		contacts, err := m.app.Network.GetContacts(context.Background())
@@ -147,17 +155,41 @@ func (m ComposeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.originalViewport.Height = viewportHeight() - 2
 		}
 	}
+
+	// Handle contacts loaded at top level so it works regardless of step
+	if cl, ok := msg.(contactsLoadedMsg); ok {
+		m.contacts = cl.contacts
+		if m.step == 0 {
+			m.filterContacts()
+		}
+		// Check if current recipient is already a contact
+		m.recipientIsContact = m.isRecipientInContacts()
+		return m, nil
+	}
+
 	switch m.step {
 	case 0:
 		return m.updateRecipient(msg)
 	case 1:
 		return m.updateBody(msg)
 	case 2:
-		return m.updateStamp(msg)
-	case 3:
 		return m.updateShipping(msg)
+	case 3:
+		return m.updateStamp(msg)
 	}
 	return m, nil
+}
+
+func (m ComposeModel) isRecipientInContacts() bool {
+	if m.recipientID == uuid.Nil {
+		return true
+	}
+	for _, c := range m.contacts {
+		if c.UserID == m.recipientID {
+			return true
+		}
+	}
+	return false
 }
 
 func (m ComposeModel) updateRecipient(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -186,6 +218,7 @@ func (m ComposeModel) updateRecipient(msg tea.Msg) (tea.Model, tea.Cmd) {
 				c := m.contacts[m.filteredIdx[m.recipientSel]]
 				m.recipientID = c.UserID
 				m.recipientName = c.Username
+				m.recipientIsContact = true
 				m.step = 1
 				m.recipientInput.Blur()
 				m.bodyArea.Focus()
@@ -208,9 +241,6 @@ func (m ComposeModel) updateRecipient(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.filterContacts()
 			return m, cmd
 		}
-	case contactsLoadedMsg:
-		m.contacts = msg.contacts
-		m.filterContacts()
 	case errMsg:
 		m.err = msg.err.Error()
 	}
@@ -298,6 +328,7 @@ func (m ComposeModel) updateBody(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		m.draftRestored = false
+		m.addedContact = false
 		switch msg.String() {
 		case "ctrl+r":
 			if m.originalMsgID != uuid.Nil {
@@ -310,20 +341,38 @@ func (m ComposeModel) updateBody(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.err = "letter exceeds 5,000 word limit"
 				return m, nil
 			}
-			// Move to stamp selection — fetch user's stamps
+			// Move to shipping — fetch stamps + shipping info in parallel
 			m.step = 2
 			m.bodyArea.Blur()
-			return m, m.fetchStamps()
+			return m, tea.Batch(m.fetchStamps(), m.fetchShipping())
+		case "ctrl+a":
+			// Add sender to contacts (only in reply to non-contact)
+			if m.originalMsgID != uuid.Nil && !m.recipientIsContact && !m.addedContact {
+				return m, m.addRecipientAsContact()
+			}
 		case "ctrl+b", "esc":
 			m.saveDraft()
 			return m, func() tea.Msg { return switchScreenMsg{screen: m.origin} }
 		}
+	case contactAddedInComposeMsg:
+		m.recipientIsContact = true
+		m.addedContact = true
 	case errMsg:
 		m.err = msg.err.Error()
 	}
 	var cmd tea.Cmd
 	m.bodyArea, cmd = m.bodyArea.Update(msg)
 	return m, cmd
+}
+
+func (m ComposeModel) addRecipientAsContact() tea.Cmd {
+	return func() tea.Msg {
+		_, err := m.app.Network.AddContactByID(context.Background(), m.recipientID)
+		if err != nil {
+			return errMsg{err: fmt.Errorf("adding contact: %w", err)}
+		}
+		return contactAddedInComposeMsg{}
+	}
 }
 
 func (m ComposeModel) fetchShipping() tea.Cmd {
@@ -358,6 +407,71 @@ type composeStampsLoadedMsg struct {
 	stamps []models.Stamp
 }
 
+func (m ComposeModel) updateShipping(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "up", "k":
+			if m.shippingIdx > 0 {
+				m.shippingIdx--
+			}
+		case "down", "j":
+			opts := m.shippingOptions()
+			if m.shippingIdx < len(opts)-1 {
+				m.shippingIdx++
+			}
+		case "enter":
+			opts := m.shippingOptions()
+			if m.shippingIdx < len(opts) {
+				opt := opts[m.shippingIdx]
+				if opt.locked {
+					m.err = fmt.Sprintf("need %d stamps for %s (you have %d)", opt.stampsReq, opt.name, len(m.stamps))
+					return m, nil
+				}
+				m.requiredStamps = opt.stampsReq
+				m.selectedStamps = make(map[uuid.UUID]bool)
+				m.stampCursor = 0
+				m.step = 3
+				m.err = ""
+			}
+		case "b", "esc":
+			m.step = 1
+			m.bodyArea.Focus()
+			m.shippingIdx = 0
+		}
+	case shippingLoadedMsg:
+		m.shippingInfo = msg.info
+	case composeStampsLoadedMsg:
+		m.stamps = filterAndSortStamps(msg.stamps)
+	case errMsg:
+		m.err = msg.err.Error()
+	}
+	return m, nil
+}
+
+func filterAndSortStamps(stamps []models.Stamp) []models.Stamp {
+	var filtered []models.Stamp
+	for _, s := range stamps {
+		t := s.StampType
+		switch {
+		case strings.HasPrefix(t, "common:"):
+			if _, ok := stampEmoji[t]; ok {
+				filtered = append(filtered, s)
+			}
+		case strings.HasPrefix(t, "state:"), strings.HasPrefix(t, "country:"):
+			filtered = append(filtered, s)
+		}
+	}
+	sort.SliceStable(filtered, func(i, j int) bool {
+		ci, cj := stampCategoryOrder(filtered[i].StampType), stampCategoryOrder(filtered[j].StampType)
+		if ci != cj {
+			return ci < cj
+		}
+		return filtered[i].StampType < filtered[j].StampType
+	})
+	return filtered
+}
+
 func (m ComposeModel) updateStamp(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -370,63 +484,33 @@ func (m ComposeModel) updateStamp(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.stampCursor < len(m.stamps)-1 {
 				m.stampCursor++
 			}
-		case "enter":
+		case " ", "enter":
 			if len(m.stamps) > 0 && m.stampCursor < len(m.stamps) {
 				s := m.stamps[m.stampCursor]
-				m.selectedStamp = &s
-				m.step = 3
-				return m, m.fetchShipping()
-			}
-		case "b", "esc":
-			m.step = 1
-			m.bodyArea.Focus()
-		}
-	case composeStampsLoadedMsg:
-		// Filter to known stamp types only (excludes seasonal like common:spring)
-		// Rare stamps intentionally excluded — cannot be gifted
-		var filtered []models.Stamp
-		for _, s := range msg.stamps {
-			t := s.StampType
-			switch {
-			case strings.HasPrefix(t, "common:"):
-				if _, ok := stampEmoji[t]; ok {
-					filtered = append(filtered, s)
+				if m.selectedStamps[s.ID] {
+					// Deselect
+					delete(m.selectedStamps, s.ID)
+				} else if len(m.selectedStamps) < m.requiredStamps {
+					// Select
+					m.selectedStamps[s.ID] = true
 				}
-			case strings.HasPrefix(t, "state:"), strings.HasPrefix(t, "country:"):
-				filtered = append(filtered, s)
+				m.err = ""
 			}
-		}
-		// Sort by category (common, rare, state, country) then alphabetically
-		sort.SliceStable(filtered, func(i, j int) bool {
-			ci, cj := stampCategoryOrder(filtered[i].StampType), stampCategoryOrder(filtered[j].StampType)
-			if ci != cj {
-				return ci < cj
+		case "ctrl+s":
+			// Send when exact count selected
+			if len(m.selectedStamps) == m.requiredStamps {
+				if m.sending {
+					return m, nil
+				}
+				m.sending = true
+				return m, m.sendLetter()
 			}
-			return filtered[i].StampType < filtered[j].StampType
-		})
-		m.stamps = filtered
-		m.stampCursor = 0
-	case errMsg:
-		m.err = msg.err.Error()
-	}
-	return m, nil
-}
-
-func (m ComposeModel) updateShipping(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "enter":
-			if m.sending {
-				return m, nil
-			}
-			m.sending = true
-			return m, m.sendLetter()
+			m.err = fmt.Sprintf("select %d stamp(s) to send", m.requiredStamps)
 		case "b", "esc":
 			m.step = 2
+			m.selectedStamps = make(map[uuid.UUID]bool)
+			m.err = ""
 		}
-	case shippingLoadedMsg:
-		m.shippingInfo = msg.info
 	case letterSentMsg:
 		_ = DeleteDraft(m.recipientID)
 		return m, func() tea.Msg {
@@ -461,14 +545,14 @@ func (m ComposeModel) sendLetter() tea.Cmd {
 		}
 
 		tiers := []string{"first_class", "priority", "express"}
-		tier := tiers[0] // default first class
+		tier := tiers[0]
 		if m.shippingIdx >= 0 && m.shippingIdx < len(tiers) {
 			tier = tiers[m.shippingIdx]
 		}
 
 		var stampIDs []uuid.UUID
-		if m.selectedStamp != nil {
-			stampIDs = []uuid.UUID{m.selectedStamp.ID}
+		for id := range m.selectedStamps {
+			stampIDs = append(stampIDs, id)
 		}
 
 		resp, err := m.app.Network.SendLetter(ctx, protocol.SendLetterRequest{
@@ -526,9 +610,9 @@ func (m ComposeModel) View() string {
 	case 1:
 		return m.viewBody()
 	case 2:
-		return m.viewStamp()
-	case 3:
 		return m.viewShipping()
+	case 3:
+		return m.viewStamp()
 	}
 	return ""
 }
@@ -612,10 +696,17 @@ func (m ComposeModel) viewBody() string {
 		content += "\n" + mutedStyle.Render(wordLine)
 	}
 
+	if m.addedContact {
+		content += "\n" + successStyle.Render("added to contacts")
+	}
+
 	if m.err != "" {
 		content += "\n" + errorStyle.Render(m.err)
 	}
 	help := "[ctrl+s] send"
+	if m.originalMsgID != uuid.Nil && !m.recipientIsContact && !m.addedContact {
+		help += "  [ctrl+a] add to contacts"
+	}
 	if m.originalMsgID != uuid.Nil {
 		help += "  [ctrl+r] view letter"
 	}
@@ -709,10 +800,63 @@ func stampCategoryLabel(stampType string) string {
 	}
 }
 
-func (m ComposeModel) viewStamp() string {
-	title := titleStyle.Render("STAMP")
+func (m ComposeModel) viewShipping() string {
+	title := titleStyle.Render("SHIPPING")
 	content := title + "\n" + divider(contentWidth()) + "\n"
+
 	content += fmt.Sprintf("to: %s\n", selectedStyle.Render(m.recipientName))
+	if m.shippingInfo != nil {
+		content += fmt.Sprintf("%s -> %s\n", m.shippingInfo.FromCity, m.shippingInfo.ToCity)
+		if len(m.shippingInfo.Options) > 0 {
+			opt := m.shippingInfo.Options[0]
+			content += fmt.Sprintf("distance: %.0f mi (%d hops)\n", opt.Distance, opt.Hops)
+		}
+	}
+
+	content += "\n"
+	opts := m.shippingOptions()
+	for i, opt := range opts {
+		prefix := "  "
+		if i == m.shippingIdx {
+			prefix = "> "
+		}
+
+		stampLabel := fmt.Sprintf("(%d stamp)", opt.stampsReq)
+		if opt.stampsReq > 1 {
+			stampLabel = fmt.Sprintf("(%d stamps)", opt.stampsReq)
+		}
+
+		line := fmt.Sprintf("[%d] %-14s~%.1f days  %s", i+1, opt.name, opt.days, stampLabel)
+		if i == m.shippingIdx {
+			if opt.locked {
+				content += mutedStyle.Render("🔒"+prefix+line) + "\n"
+			} else {
+				content += selectedStyle.Render(prefix+line) + "\n"
+			}
+		} else {
+			if opt.locked {
+				content += mutedStyle.Render("🔒 "+line) + "\n"
+			} else {
+				content += "  " + line + "\n"
+			}
+		}
+	}
+
+	if m.err != "" {
+		content += "\n" + errorStyle.Render(m.err) + "\n"
+	}
+	content += "\n" + helpStyle.Render("[up/dn] select  [enter] next  [b] back")
+	return screenBox().Render(content)
+}
+
+func (m ComposeModel) viewStamp() string {
+	selected := len(m.selectedStamps)
+	title := titleStyle.Render(fmt.Sprintf("STAMPS (%d/%d)", selected, m.requiredStamps))
+	content := title + "\n" + divider(contentWidth()) + "\n"
+
+	tiers := []string{"first_class", "priority", "express"}
+	tierName := models.ShippingTier(tiers[m.shippingIdx]).DisplayName()
+	content += fmt.Sprintf("to: %s · %s\n", selectedStyle.Render(m.recipientName), mutedStyle.Render(strings.ToLower(tierName)))
 
 	if len(m.stamps) == 0 {
 		content += "\n" + mutedStyle.Render("no stamps available") + "\n"
@@ -720,7 +864,7 @@ func (m ComposeModel) viewStamp() string {
 		return screenBox().Render(content)
 	}
 
-	content += "\nattach a stamp to your letter:\n\n"
+	content += fmt.Sprintf("\nselect %d stamp(s) for your letter:\n\n", m.requiredStamps)
 
 	maxVisible := 8
 	start := 0
@@ -737,46 +881,20 @@ func (m ComposeModel) viewStamp() string {
 		if i == m.stampCursor {
 			prefix = "> "
 		}
+
+		check := "[ ]"
+		if m.selectedStamps[s.ID] {
+			check = "[*]"
+		}
+
 		emoji := stampEmojiFor(s.StampType)
 		name := stampDisplayName(s.StampType)
 		rarity := mutedStyle.Render(stampCategoryLabel(s.StampType))
-		line := fmt.Sprintf("%s  %-20s %s", emoji, name, rarity)
+		line := fmt.Sprintf("%s %s  %-20s %s", check, emoji, name, rarity)
 		if i == m.stampCursor {
 			content += selectedStyle.Render(prefix+line) + "\n"
 		} else {
 			content += prefix + line + "\n"
-		}
-	}
-
-	if m.err != "" {
-		content += "\n" + errorStyle.Render(m.err) + "\n"
-	}
-	content += "\n" + helpStyle.Render("[enter] select  [b] back")
-	return screenBox().Render(content)
-}
-
-func (m ComposeModel) viewShipping() string {
-	title := titleStyle.Render("SHIPPING")
-	content := title + "\n" + divider(contentWidth()) + "\n"
-
-	content += fmt.Sprintf("to: %s\n", selectedStyle.Render(m.recipientName))
-	if m.shippingInfo != nil {
-		content += fmt.Sprintf("%s -> %s\n", m.shippingInfo.FromCity, m.shippingInfo.ToCity)
-		if len(m.shippingInfo.Options) > 0 {
-			opt := m.shippingInfo.Options[0]
-			content += fmt.Sprintf("distance: %.0f mi (%d hops)\n", opt.Distance, opt.Hops)
-		}
-	}
-
-	content += "\n"
-	for i, opt := range m.shippingOptions() {
-		if i == 0 {
-			prefix := "> "
-			line := fmt.Sprintf("[%d] %-12s ~%.1f days", i+1, opt.name, opt.days)
-			content += selectedStyle.Render(prefix+line) + "\n"
-		} else {
-			line := fmt.Sprintf("  🔒 [%d] %-12s ~%.1f days", i+1, opt.name, opt.days)
-			content += mutedStyle.Render(line) + "\n"
 		}
 	}
 
@@ -786,25 +904,39 @@ func (m ComposeModel) viewShipping() string {
 	if m.err != "" {
 		content += "\n" + errorStyle.Render(m.err) + "\n"
 	}
-	content += "\n" + helpStyle.Render("[enter] send  [b] back")
+
+	help := "[space] toggle"
+	if selected == m.requiredStamps {
+		help += "  [ctrl+s] send"
+	}
+	help += "  [b] back"
+	content += "\n" + helpStyle.Render(help)
 	return screenBox().Render(content)
 }
 
 type shippingOpt struct {
-	name string
-	days float64
+	name      string
+	days      float64
+	stampsReq int
+	locked    bool
 }
 
 func (m ComposeModel) shippingOptions() []shippingOpt {
-	defaults := []shippingOpt{
-		{"First Class", 0},
-		{"Priority", 0},
-		{"Express", 0},
-	}
-	if m.shippingInfo != nil && len(m.shippingInfo.Options) == 3 {
-		for i, opt := range m.shippingInfo.Options {
-			defaults[i].days = opt.Days
+	tiers := models.AllTiers()
+	opts := make([]shippingOpt, len(tiers))
+	for i, tier := range tiers {
+		req := tier.StampsRequired()
+		opts[i] = shippingOpt{
+			name:      tier.DisplayName(),
+			days:      0,
+			stampsReq: req,
+			locked:    len(m.stamps) < req,
 		}
 	}
-	return defaults
+	if m.shippingInfo != nil && len(m.shippingInfo.Options) == len(opts) {
+		for i, info := range m.shippingInfo.Options {
+			opts[i].days = info.Days
+		}
+	}
+	return opts
 }

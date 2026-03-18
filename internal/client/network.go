@@ -366,6 +366,22 @@ func (n *Network) AddContact(ctx context.Context, username, discriminator string
 	return &result, nil
 }
 
+// AddContactByID adds a contact by their user ID.
+func (n *Network) AddContactByID(ctx context.Context, userID uuid.UUID) (*protocol.ContactItem, error) {
+	resp, err := n.Send(ctx, protocol.MsgAddContact, protocol.AddContactRequest{
+		UserID: userID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	data, _ := json.Marshal(resp.Payload)
+	var result protocol.ContactItem
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 // GetInbox retrieves the user's inbox with cursor-based pagination.
 // Pass nil for before to fetch the first page.
 func (n *Network) GetInbox(ctx context.Context, before *time.Time) (*protocol.InboxResponse, error) {

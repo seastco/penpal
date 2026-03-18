@@ -292,14 +292,14 @@ func (d *DB) CreateMessage(ctx context.Context, msg *models.Message, stampIDs []
 	// Attach stamps (atomically transfer from sender to message)
 	for _, stampID := range stampIDs {
 		// Verify stamp is owned by sender
-		var ownerID uuid.UUID
+		var ownerID *uuid.UUID
 		err := tx.QueryRowContext(ctx,
 			`SELECT owner_id FROM stamps WHERE id = $1 FOR UPDATE`, stampID,
 		).Scan(&ownerID)
 		if err != nil {
 			return fmt.Errorf("looking up stamp %s: %w", stampID, err)
 		}
-		if ownerID != msg.SenderID {
+		if ownerID == nil || *ownerID != msg.SenderID {
 			return fmt.Errorf("stamp %s not owned by sender", stampID)
 		}
 		// Create attachment
@@ -309,6 +309,17 @@ func (d *DB) CreateMessage(ctx context.Context, msg *models.Message, stampIDs []
 		)
 		if err != nil {
 			return fmt.Errorf("attaching stamp: %w", err)
+		}
+	}
+
+	// Consume stamps from sender (set owner_id = NULL while in transit)
+	if len(stampIDs) > 0 {
+		_, err = tx.ExecContext(ctx,
+			`UPDATE stamps SET owner_id = NULL WHERE id = ANY($1)`,
+			pq.Array(stampIDs),
+		)
+		if err != nil {
+			return fmt.Errorf("consuming stamps: %w", err)
 		}
 	}
 
@@ -683,7 +694,7 @@ func (d *DB) GetStamps(ctx context.Context, ownerID uuid.UUID) ([]models.Stamp, 
 // CreateStamp creates a new stamp for a user.
 func (d *DB) CreateStamp(ctx context.Context, ownerID uuid.UUID, stampType string, rarity models.StampRarity, earnedVia models.EarnedVia) (*models.Stamp, error) {
 	s := &models.Stamp{
-		OwnerID:   ownerID,
+		OwnerID:   &ownerID,
 		StampType: stampType,
 		Rarity:    rarity,
 		EarnedVia: earnedVia,

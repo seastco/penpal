@@ -94,8 +94,9 @@ type MarkReadRequest struct {
 }
 
 type AddContactRequest struct {
-	Username      string `json:"username"`
-	Discriminator string `json:"discriminator"`
+	Username      string    `json:"username"`
+	Discriminator string    `json:"discriminator"`
+	UserID        uuid.UUID `json:"user_id,omitempty"` // if set, add by ID instead of address
 }
 
 type DeleteContactRequest struct {

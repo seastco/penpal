@@ -88,7 +88,6 @@ func (m AddressBookModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.WindowSizeMsg:
 		m.viewport.Width = contentWidth()
-		m.viewport.Height = viewportHeight() - 3
 	case contactsLoadedMsg:
 		m.contacts = msg.contacts
 		m.loading = false
@@ -104,6 +103,9 @@ func (m AddressBookModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m AddressBookModel) syncViewport() AddressBookModel {
+	bh := adaptiveBoxHeight(len(m.contacts), 10)
+	m.viewport.Height = bh - 10
+
 	var content string
 	if m.err != "" {
 		content = errorStyle.Render(m.err)
@@ -151,6 +153,7 @@ func (m AddressBookModel) View() string {
 		return emptyScreenView(header, body, "[a] add new  [b] back")
 	}
 	m = m.syncViewport()
+	bh := adaptiveBoxHeight(len(m.contacts), 10)
 	var footer string
 	if m.confirmDelete && m.cursor < len(m.contacts) {
 		name := m.contacts[m.cursor].Username
@@ -158,7 +161,7 @@ func (m AddressBookModel) View() string {
 	} else {
 		footer = "\n\n" + helpStyle.Render("[a] add new  [d] delete  [b] back")
 	}
-	return screenBoxFixed().Render(header + m.viewport.View() + footer)
+	return screenBox().Height(bh).Render(header + m.viewport.View() + footer)
 }
 
 // AddContactModel handles adding a new contact.

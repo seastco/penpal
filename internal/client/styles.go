@@ -249,10 +249,27 @@ func divider(width int) string {
 }
 
 // boxHeight returns the responsive outer box height for scrollable screens.
+// Subtracts 4 (not 2) so the rendered box (Height + 2 for borders) leaves
+// centering margin in centeredView.
 func boxHeight() int {
-	h := termHeight - 2
+	h := termHeight - 4
 	if h < 14 {
 		h = 14
+	}
+	return h
+}
+
+// adaptiveBoxHeight returns a box height that stays compact for small content
+// but grows up to boxHeight() when scrolling is needed.
+// contentLines = number of lines the viewport content occupies.
+// overhead = header + footer + padding lines (everything except viewport).
+func adaptiveBoxHeight(contentLines, overhead int) int {
+	h := contentLines + overhead
+	if h < 13 {
+		h = 13
+	}
+	if maxH := boxHeight(); h > maxH {
+		h = maxH
 	}
 	return h
 }

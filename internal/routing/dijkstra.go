@@ -43,7 +43,11 @@ func (g *Graph) Route(fromIdx, toIdx int, tier models.ShippingTier, departureTim
 		return nil, 0, fmt.Errorf("invalid to city index: %d", toIdx)
 	}
 	if fromIdx == toIdx {
-		hop := g.makeHop(fromIdx, departureTime)
+		// Same-city route: apply handling time so mail isn't instant
+		intl := len(international) > 0 && international[0]
+		transitDays := TransitDays(0, tier, intl) // 0 distance + handling
+		eta := departureTime.Add(time.Duration(transitDays*24*float64(time.Hour)))
+		hop := g.makeHop(fromIdx, eta)
 		return []models.RouteHop{hop}, 0, nil
 	}
 

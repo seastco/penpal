@@ -154,8 +154,8 @@ func TestEndToEnd(t *testing.T) {
 	stampsResp := clientA.send(t, protocol.MsgGetStamps, nil)
 	stamps := unmarshal[protocol.StampsResponse](t, stampsResp)
 	t.Logf("Steven has %d stamps", len(stamps.Stamps))
-	if len(stamps.Stamps) != 3 {
-		t.Fatalf("expected 3 registration stamps (2 common + 1 state), got %d", len(stamps.Stamps))
+	if len(stamps.Stamps) != 8 {
+		t.Fatalf("expected 8 registration stamps (3 common + 5 state), got %d", len(stamps.Stamps))
 	}
 	for _, s := range stamps.Stamps {
 		if s.EarnedVia != "registration" {
@@ -186,13 +186,13 @@ func TestEndToEnd(t *testing.T) {
 	}
 	t.Logf("Encrypted letter: %d bytes plaintext -> %d bytes ciphertext", len(letterBody), len(encrypted))
 
-	// ===== Step 8: Send the letter (with a stamp attached) =====
-	t.Log("=== Sending letter (priority shipping) ===")
+	// ===== Step 8: Send the letter (with stamps attached) =====
+	t.Log("=== Sending letter (priority shipping, 2 stamps) ===")
 	sendResp := clientA.send(t, protocol.MsgSendLetter, protocol.SendLetterRequest{
 		RecipientID:   regB.UserID,
 		EncryptedBody: encrypted,
 		ShippingTier:  "priority",
-		StampIDs:      []uuid.UUID{stamps.Stamps[0].ID},
+		StampIDs:      []uuid.UUID{stamps.Stamps[0].ID, stamps.Stamps[1].ID},
 	})
 	sentResult := unmarshal[protocol.LetterSentResponse](t, sendResp)
 	t.Logf("Letter sent! ID: %s", sentResult.MessageID)
@@ -297,8 +297,8 @@ func TestEndToEnd(t *testing.T) {
 	// Verify the recovered session is authenticated by making an authenticated request
 	stampsResp2 := clientA3.send(t, protocol.MsgGetStamps, nil)
 	stamps2 := unmarshal[protocol.StampsResponse](t, stampsResp2)
-	if len(stamps2.Stamps) < 2 {
-		t.Fatalf("expected at least 2 stamps after recovery, got %d", len(stamps2.Stamps))
+	if len(stamps2.Stamps) < 5 {
+		t.Fatalf("expected at least 5 stamps after recovery (8 reg - 2 sent), got %d", len(stamps2.Stamps))
 	}
 	t.Logf("Recovery session authenticated: can see %d stamps", len(stamps2.Stamps))
 

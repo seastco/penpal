@@ -88,9 +88,9 @@ func (m TrackingModel) View() string {
 	content := title + "\n" + divider(contentWidth()) + "\n"
 
 	if m.loading {
-		content += "\n  " + mutedStyle.Render("loading...") + "\n"
+		content += "\n" + mutedStyle.Render("loading...") + "\n"
 	} else if m.err != "" {
-		content += "\n  " + errorStyle.Render(m.err) + "\n"
+		content += "\n" + errorStyle.Render(m.err) + "\n"
 	} else if m.tracking != nil {
 		now := time.Now()
 		total := len(m.tracking.Route)
@@ -99,7 +99,7 @@ func (m TrackingModel) View() string {
 		if total > 0 {
 			lastHop := m.tracking.Route[total-1]
 			if time.Until(lastHop.ETA) <= 0 {
-				content += "\n  " + successStyle.Render("Delivered!") + "\n"
+				content += "\n" + successStyle.Render("Delivered!") + "\n"
 			}
 		}
 
@@ -117,10 +117,10 @@ func (m TrackingModel) View() string {
 			} else {
 				timeStr = hop.ETA.Format("01/02 ~15:04")
 			}
-			content += fmt.Sprintf("  %s %s  %s\n", node, mutedStyle.Render(timeStr), hop.City)
+			content += fmt.Sprintf("%s %s  %s\n", node, mutedStyle.Render(timeStr), hop.City)
 		}
 
-		content += fmt.Sprintf("\n  %s\n",
+		content += fmt.Sprintf("\n%s\n",
 			mutedStyle.Render(fmt.Sprintf("%s · %.0f mi",
 				m.tracking.ShippingTier, m.tracking.Distance)))
 	}
@@ -204,7 +204,6 @@ func (m InTransitModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.WindowSizeMsg:
 		m.viewport.Width = contentWidth()
-		m.viewport.Height = viewportHeight()
 	case inTransitLoadedMsg:
 		m.items = msg.items
 		m.loading = false
@@ -219,6 +218,9 @@ func (m InTransitModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 const linesPerTransitItem = 5
 
 func (m InTransitModel) syncViewport() InTransitModel {
+	bh := adaptiveBoxHeight(len(m.items)*linesPerTransitItem, 6)
+	m.viewport.Height = bh - 6
+
 	var content string
 	if m.err != "" {
 		content = "\n" + errorStyle.Render(m.err)
@@ -295,8 +297,9 @@ func (m InTransitModel) View() string {
 		return emptyScreenView(header, body, "[b] back")
 	}
 	m = m.syncViewport()
+	bh := adaptiveBoxHeight(len(m.items)*linesPerTransitItem, 6)
 	footer := "\n\n" + helpStyle.Render("[enter] view  [b] back")
-	return screenBoxFixed().Render(header + m.viewport.View() + footer)
+	return screenBox().Height(bh).Render(header + m.viewport.View() + footer)
 }
 
 type trackLetterMsg struct {
@@ -380,7 +383,6 @@ func (m SentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.WindowSizeMsg:
 		m.viewport.Width = contentWidth()
-		m.viewport.Height = viewportHeight()
 	case sentLoadedMsg:
 		if msg.append {
 			m.items = append(m.items, msg.items...)
@@ -400,6 +402,9 @@ func (m SentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m SentModel) syncViewport() SentModel {
+	bh := adaptiveBoxHeight(len(m.items), 6)
+	m.viewport.Height = bh - 6
+
 	var content string
 	if m.err != "" {
 		content = "\n" + errorStyle.Render(m.err)
@@ -451,6 +456,7 @@ func (m SentModel) View() string {
 		return emptyScreenView(header, body, "[b] back")
 	}
 	m = m.syncViewport()
+	bh := adaptiveBoxHeight(len(m.items), 6)
 	footer := "\n\n" + helpStyle.Render("[enter] view  [b] back")
-	return screenBoxFixed().Render(header + m.viewport.View() + footer)
+	return screenBox().Height(bh).Render(header + m.viewport.View() + footer)
 }

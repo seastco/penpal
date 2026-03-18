@@ -96,6 +96,20 @@ func (t ShippingTier) JitterScale(international bool) float64 {
 	}
 }
 
+// StampsRequired returns how many stamps this tier costs.
+func (t ShippingTier) StampsRequired() int {
+	switch t {
+	case TierFirstClass:
+		return 1
+	case TierPriority:
+		return 2
+	case TierExpress:
+		return 3
+	default:
+		return 1
+	}
+}
+
 // DisplayName returns the human-readable tier name.
 func (t ShippingTier) DisplayName() string {
 	switch t {
