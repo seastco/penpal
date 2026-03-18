@@ -957,14 +957,19 @@ func (c *Client) handleGetShipping(ctx context.Context, env protocol.Envelope) e
 		return fmt.Errorf("route computation failed: %w", err)
 	}
 
+	senderLoc := c.server.graph.Cities[fromIdx].Timezone()
+	now := time.Now()
+
 	var options []protocol.ShippingOption
 	for _, tier := range models.AllTiers() {
 		transitDays := routing.TransitDays(dist, tier, isIntl)
+		estDelivery := routing.EstimateDelivery(dist, string(tier), now, senderLoc)
 		options = append(options, protocol.ShippingOption{
-			Tier:     string(tier),
-			Days:     transitDays,
-			Distance: dist,
-			Hops:     len(path),
+			Tier:        string(tier),
+			Days:        transitDays,
+			EstDelivery: estDelivery,
+			Distance:    dist,
+			Hops:        len(path),
 		})
 	}
 

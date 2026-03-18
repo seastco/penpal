@@ -7,6 +7,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 )
 
 const (
@@ -31,6 +32,14 @@ func (c City) FullName() string {
 		suffix = c.Country
 	}
 	return fmt.Sprintf("%s, %s", c.Name, suffix)
+}
+
+// Timezone returns the *time.Location for this city based on its state and longitude.
+func (c City) Timezone() *time.Location {
+	if c.EffectiveCountry() != "US" {
+		return time.UTC
+	}
+	return TimezoneForState(c.State, c.Lng)
 }
 
 // EffectiveCountry returns the country code, defaulting to "US" when empty.

@@ -26,73 +26,99 @@ func ValidTier(t ShippingTier) bool {
 	return t == TierFirstClass || t == TierPriority || t == TierExpress
 }
 
-// MilesPerDay returns the transit speed for this shipping tier.
-func (t ShippingTier) MilesPerDay() float64 {
+// TransitSpeedMPH returns the inter-facility transit speed in miles per hour.
+// First Class uses ground trucks, Priority mixes ground+air, Express is primarily air.
+func (t ShippingTier) TransitSpeedMPH() float64 {
 	switch t {
 	case TierFirstClass:
-		return 700
+		return 50 // ground trucks
 	case TierPriority:
-		return 1500
+		return 100 // ground + some air
 	case TierExpress:
-		return 2000
+		return 400 // primarily air freight
 	default:
-		return 700
+		return 50
 	}
 }
 
-// HandlingDays returns the fixed handling overhead in days.
-func (t ShippingTier) HandlingDays() float64 {
+// DwellMeanHours returns the mean facility dwell time in hours.
+// This is the dominant delay — time mail spends at each sorting facility
+// (queuing, sorting, loading onto outgoing transport).
+func (t ShippingTier) DwellMeanHours() float64 {
 	switch t {
 	case TierFirstClass:
-		return 2.0
+		return 11.0
 	case TierPriority:
-		return 1.0
+		return 5.0
 	case TierExpress:
-		return 0.5
-	default:
 		return 2.0
+	default:
+		return 11.0
 	}
+}
+
+// DwellSigma returns the log-normal sigma for facility dwell time jitter.
+// Higher values = more variance. Letters run late, never early.
+func (t ShippingTier) DwellSigma() float64 {
+	switch t {
+	case TierFirstClass:
+		return 0.3
+	case TierPriority:
+		return 0.2
+	case TierExpress:
+		return 0.1
+	default:
+		return 0.3
+	}
+}
+
+// MaxFacilityHops returns the maximum number of sorting facility stops.
+// Not every tracking hop is a facility — some are just transit waypoints.
+func (t ShippingTier) MaxFacilityHops() int {
+	switch t {
+	case TierFirstClass:
+		return 5
+	case TierPriority:
+		return 4
+	case TierExpress:
+		return 3
+	default:
+		return 5
+	}
+}
+
+// RoadDetourFactor returns the multiplier to convert great-circle distance
+// to estimated road/air distance.
+func (t ShippingTier) RoadDetourFactor() float64 {
+	switch t {
+	case TierFirstClass:
+		return 1.20 // ground routing
+	case TierPriority:
+		return 1.15 // mix
+	case TierExpress:
+		return 1.0 // air (great-circle is close to air route)
+	default:
+		return 1.20
+	}
+}
+
+// IsExpress returns true if this tier operates on an express schedule
+// (7 days/week, extended hours).
+func (t ShippingTier) IsExpress() bool {
+	return t == TierExpress
 }
 
 // CustomsDays returns the base customs delay in days for international mail.
-// Returns 0 for domestic use — caller determines whether to apply.
 func (t ShippingTier) CustomsDays() float64 {
 	switch t {
 	case TierFirstClass:
-		return 10.0 // 7-14 day range; fat jitter tail
+		return 10.0
 	case TierPriority:
-		return 4.0 // 3-5 day range
+		return 4.0
 	case TierExpress:
-		return 1.5 // 1-2 day range
+		return 1.5
 	default:
 		return 10.0
-	}
-}
-
-// JitterScale returns the exponential jitter scale factor.
-// Higher values = more variance. Letters run late, never early.
-func (t ShippingTier) JitterScale(international bool) float64 {
-	if international {
-		switch t {
-		case TierFirstClass:
-			return 0.25 // fattest tail
-		case TierPriority:
-			return 0.10
-		case TierExpress:
-			return 0.05
-		default:
-			return 0.25
-		}
-	}
-	switch t {
-	case TierFirstClass:
-		return 0.10
-	case TierPriority:
-		return 0.05
-	case TierExpress:
-		return 0.02
-	default:
-		return 0.10
 	}
 }
 

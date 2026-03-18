@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 
+	_ "time/tzdata" // embed timezone database for systems without it
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"github.com/google/uuid"

@@ -826,7 +826,11 @@ func (m ComposeModel) viewShipping() string {
 			stampLabel = fmt.Sprintf("(%d stamps)", opt.stampsReq)
 		}
 
-		line := fmt.Sprintf("[%d] %-14s~%.1f days  %s", i+1, opt.name, opt.days, stampLabel)
+		est := "..."
+		if opt.estDelivery != "" {
+			est = "~" + opt.estDelivery
+		}
+		line := fmt.Sprintf("[%d] %-14s%-12s %s", i+1, opt.name, est, stampLabel)
 		if i == m.shippingIdx {
 			if opt.locked {
 				content += mutedStyle.Render("🔒"+prefix+line) + "\n"
@@ -915,10 +919,10 @@ func (m ComposeModel) viewStamp() string {
 }
 
 type shippingOpt struct {
-	name      string
-	days      float64
-	stampsReq int
-	locked    bool
+	name        string
+	estDelivery string // "Mon Jan 5" or empty if loading
+	stampsReq   int
+	locked      bool
 }
 
 func (m ComposeModel) shippingOptions() []shippingOpt {
@@ -928,14 +932,15 @@ func (m ComposeModel) shippingOptions() []shippingOpt {
 		req := tier.StampsRequired()
 		opts[i] = shippingOpt{
 			name:      tier.DisplayName(),
-			days:      0,
 			stampsReq: req,
 			locked:    len(m.stamps) < req,
 		}
 	}
 	if m.shippingInfo != nil && len(m.shippingInfo.Options) == len(opts) {
 		for i, info := range m.shippingInfo.Options {
-			opts[i].days = info.Days
+			if !info.EstDelivery.IsZero() {
+				opts[i].estDelivery = info.EstDelivery.Format("Mon Jan 2")
+			}
 		}
 	}
 	return opts

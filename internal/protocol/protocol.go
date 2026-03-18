@@ -271,10 +271,11 @@ type CityResultsResponse struct {
 }
 
 type ShippingOption struct {
-	Tier     string  `json:"tier"`
-	Days     float64 `json:"days"`
-	Distance float64 `json:"distance"`
-	Hops     int     `json:"hops"`
+	Tier        string    `json:"tier"`
+	Days        float64   `json:"days"`
+	EstDelivery time.Time `json:"est_delivery"`
+	Distance    float64   `json:"distance"`
+	Hops        int       `json:"hops"`
 }
 
 type ShippingInfoResponse struct {

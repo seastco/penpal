@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"time"
 
+	_ "time/tzdata" // embed timezone database for systems without it
+
 	"github.com/stove/penpal/internal/server"
 )
 

@@ -21,9 +21,10 @@ var dijkstraPool = sync.Pool{
 	New: func() any { return &dijkstraState{} },
 }
 
-// TransitDays computes the estimated delivery time in days for a given distance and tier.
+// TransitDays returns the estimated delivery time in business days for a given distance and tier.
+// Used for shipping estimates (pre-send display).
 func TransitDays(dist float64, tier models.ShippingTier, international bool) float64 {
-	days := math.Ceil(dist/tier.MilesPerDay()) + tier.HandlingDays()
+	days := float64(EstimateBusinessDays(dist, string(tier)))
 	if international {
 		days += tier.CustomsDays()
 	}
@@ -43,10 +44,15 @@ func (g *Graph) Route(fromIdx, toIdx int, tier models.ShippingTier, departureTim
 		return nil, 0, fmt.Errorf("invalid to city index: %d", toIdx)
 	}
 	if fromIdx == toIdx {
-		// Same-city route: apply handling time so mail isn't instant
-		intl := len(international) > 0 && international[0]
-		transitDays := TransitDays(0, tier, intl) // 0 distance + handling
-		eta := departureTime.Add(time.Duration(transitDays*24*float64(time.Hour)))
+		// Same-city route: apply facility processing + delivery window
+		express := tier.IsExpress()
+		senderLoc := g.Cities[fromIdx].Timezone()
+		departure := NextProcessingStart(departureTime, senderLoc, express)
+		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+		// One facility dwell then delivery
+		dwell := SampleDwellHours(tier.DwellMeanHours(), tier.DwellSigma(), rng)
+		ready := AddFacilityHours(departure, dwell, senderLoc, express)
+		eta := NextDeliverySlot(ready, senderLoc, express, rng)
 		hop := g.makeHop(fromIdx, eta)
 		return []models.RouteHop{hop}, 0, nil
 	}
@@ -170,66 +176,100 @@ func (g *Graph) dijkstra(from, to int) ([]int, float64, error) {
 	return path, state.dist[to], nil
 }
 
-// scheduleHops assigns ETAs to each hop based on shipping tier.
-// Formula: delivery_days = ceil(distance / speed) + handling + customs(if international)
-// Jitter is right-skewed (letters run late, never early).
-func (g *Graph) scheduleHops(path []int, tier models.ShippingTier, departure time.Time, totalDist float64, international bool) []models.RouteHop {
-	// Base transit from distance + speed
-	transitDays := math.Ceil(totalDist / tier.MilesPerDay())
+// selectFacilityHops picks which path indices are sorting facilities (incur dwell time).
+// Always includes first and last; interior hops are evenly distributed.
+func selectFacilityHops(pathLen int, maxFacilities int) map[int]bool {
+	facilities := make(map[int]bool)
+	facilities[0] = true
+	facilities[pathLen-1] = true
 
-	// Add handling overhead
-	transitDays += tier.HandlingDays()
-
-	// Add customs for international mail
-	if international {
-		transitDays += tier.CustomsDays()
+	if pathLen <= 2 || maxFacilities <= 2 {
+		return facilities
 	}
 
-	transitHours := transitDays * 24
+	interior := maxFacilities - 2
+	if interior >= pathLen-2 {
+		// All hops are facility hops
+		for i := 0; i < pathLen; i++ {
+			facilities[i] = true
+		}
+		return facilities
+	}
+
+	// Distribute interior facility hops evenly
+	step := float64(pathLen-2) / float64(interior+1)
+	for i := 1; i <= interior; i++ {
+		idx := int(math.Round(step * float64(i)))
+		if idx < 1 {
+			idx = 1
+		}
+		if idx >= pathLen-1 {
+			idx = pathLen - 2
+		}
+		facilities[idx] = true
+	}
+	return facilities
+}
+
+// scheduleHops assigns ETAs to each hop using the facility-centric model.
+// Each facility hop incurs dwell time (log-normal, within business hours).
+// Transit waypoints only add transit time. Final hop snaps to a delivery window.
+func (g *Graph) scheduleHops(path []int, tier models.ShippingTier, departureTime time.Time, totalDist float64, international bool) []models.RouteHop {
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	express := tier.IsExpress()
+	detour := tier.RoadDetourFactor()
+	speed := tier.TransitSpeedMPH()
+
+	// Determine departure time based on post office cutoff
+	senderLoc := g.Cities[path[0]].Timezone()
+	departure := NextProcessingStart(departureTime, senderLoc, express)
 
 	hops := make([]models.RouteHop, len(path))
-
-	// First hop departs immediately
 	hops[0] = g.makeHop(path[0], departure)
 
 	if len(path) == 1 {
 		return hops
 	}
 
-	// Compute cumulative distances for proportional timing
-	cumDist := make([]float64, len(path))
+	// Determine which hops are sorting facilities
+	facilities := selectFacilityHops(len(path), tier.MaxFacilityHops())
+
+	cursor := departure
+
 	for i := 1; i < len(path); i++ {
+		// Transit time from previous hop
 		segDist := Haversine(
 			g.Cities[path[i-1]].Lat, g.Cities[path[i-1]].Lng,
 			g.Cities[path[i]].Lat, g.Cities[path[i]].Lng,
-		)
-		cumDist[i] = cumDist[i-1] + segDist
-	}
+		) * detour
+		transitHours := segDist / speed
+		if transitHours < 0.5 {
+			transitHours = 0.5 // minimum 30 min transit
+		}
+		// Transit happens continuously (trucks/planes run 24/7)
+		cursor = cursor.Add(time.Duration(transitHours * float64(time.Hour)))
 
-	// Right-skewed jitter: letters run late, never early.
-	// First Class International has a ~10% chance of "customs hold" adding 5-10 extra days.
-	jitterScale := tier.JitterScale(international)
-	customsHold := 0.0
-	if international && tier == models.TierFirstClass && rand.Float64() < 0.10 {
-		customsHold = (5.0 + rand.Float64()*5.0) * 24 // 5-10 days in hours
-	}
+		if facilities[i] && i < len(path)-1 {
+			// Facility hop: snap to business hours + dwell time
+			cityLoc := g.Cities[path[i]].Timezone()
+			cursor = SnapToFacilityHours(cursor, cityLoc, express)
 
-	for i := 1; i < len(path); i++ {
-		fraction := cumDist[i] / cumDist[len(path)-1]
-		baseHours := transitHours * fraction
+			dwell := SampleDwellHours(tier.DwellMeanHours(), tier.DwellSigma(), rng)
 
-		// Right-skewed jitter on interior hops (exponential distribution, always positive)
-		jitter := 0.0
-		if i > 0 && i < len(path)-1 {
-			jitter = rand.ExpFloat64() * jitterScale * (transitHours / float64(len(path)-1))
+			// International customs: add extra dwell at first facility
+			if international && i == 1 {
+				dwell += tier.CustomsDays() * 24
+			}
+
+			cursor = AddFacilityHours(cursor, dwell, cityLoc, express)
 		}
 
-		// Distribute customs hold proportionally across the route
-		holdContrib := customsHold * fraction
-
-		eta := departure.Add(time.Duration((baseHours + jitter + holdContrib) * float64(time.Hour)))
-		hops[i] = g.makeHop(path[i], eta)
+		hops[i] = g.makeHop(path[i], cursor)
 	}
+
+	// Final hop: snap to delivery window
+	destLoc := g.Cities[path[len(path)-1]].Timezone()
+	hops[len(path)-1].ETA = NextDeliverySlot(cursor, destLoc, express, rng)
 
 	return hops
 }

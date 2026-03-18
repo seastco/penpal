@@ -146,7 +146,7 @@ func TestEndToEnd(t *testing.T) {
 	shipping := unmarshal[protocol.ShippingInfoResponse](t, shippingResp)
 	t.Logf("Route: %s -> %s", shipping.FromCity, shipping.ToCity)
 	for _, opt := range shipping.Options {
-		t.Logf("  %s: %.1f days, %.0f mi, %d hops", opt.Tier, opt.Days, opt.Distance, opt.Hops)
+		t.Logf("  %s: ~%s (%.0f biz days), %.0f mi, %d hops", opt.Tier, opt.EstDelivery.Format("Mon Jan 2"), opt.Days, opt.Distance, opt.Hops)
 	}
 
 	// ===== Step 6: Get Steven's stamps (needed to attach one to the letter) =====
