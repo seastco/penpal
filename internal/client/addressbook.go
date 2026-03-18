@@ -118,7 +118,8 @@ func (m AddressBookModel) syncViewport() AddressBookModel {
 			if i == m.cursor {
 				prefix = "> "
 			}
-			line := fmt.Sprintf("%-14s %s", c.Username, mutedStyle.Render(c.HomeCity))
+			addr := fmt.Sprintf("%s#%s", c.Username, c.Discriminator)
+			line := fmt.Sprintf("%-18s %s", addr, mutedStyle.Render(c.HomeCity))
 			if i == m.cursor {
 				b.WriteString(selectedStyle.Render(prefix+line) + "\n")
 			} else {
@@ -159,7 +160,7 @@ func (m AddressBookModel) View() string {
 	bh := adaptiveBoxHeight(len(m.contacts), 10)
 	var footer string
 	if m.confirmDelete && m.cursor < len(m.contacts) {
-		name := m.contacts[m.cursor].Username
+		name := fmt.Sprintf("%s#%s", m.contacts[m.cursor].Username, m.contacts[m.cursor].Discriminator)
 		footer = "\n\n" + errorStyle.Render(fmt.Sprintf("delete %s? [y] yes  [n] no", name))
 	} else {
 		footer = "\n\n" + helpStyle.Render("[a] add new  [d] delete  [b] back")

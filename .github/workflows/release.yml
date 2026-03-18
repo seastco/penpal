@@ -44,6 +44,7 @@ jobs:
         run: |
           for i in 1 2 3 4 5; do
             if curl -sf https://getpenpal.dev/v1/health; then
+              echo ""
               echo "Health check passed"
               exit 0
             fi
