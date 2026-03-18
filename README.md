@@ -16,14 +16,22 @@ penpal is a terminal messaging app where your letters travel across the United S
 
 ## Getting started
 
-Install
+Install (macOS/Linux)
 ```bash
 curl -fsSL https://raw.githubusercontent.com/seastco/penpal/master/install.sh | sh
 ```
+
+Install (Windows PowerShell)
+```powershell
+irm https://raw.githubusercontent.com/seastco/penpal/master/install.ps1 | iex
+```
+
 Run
 ```
 penpal
 ```
+
+On Windows, if this is your first install, open a new terminal after installation so your updated PATH is loaded.
 
 On first launch you'll choose a username, write down your 12-word recovery phrase, and pick a home city. That's it. You're ready to start sending letters.
 
@@ -33,6 +41,12 @@ Your account data lives in `~/.penpal` by default. To use a different directory:
 
 ```bash
 PENPAL_HOME=~/somewhere/else penpal
+```
+
+On Windows, the default account directory is `C:\Users\<you>\.penpal`. To use a different directory in PowerShell:
+
+```powershell
+$env:PENPAL_HOME = "$HOME\somewhere\else"; penpal
 ```
 
 **Important:** Your private key in `~/.penpal` *is* your account. If you delete that folder or lose the key, the only way to recover your account is with your 12-word recovery phrase. Keep it safe in a password manager.
