@@ -49,8 +49,6 @@ if [ -f "${INSTALL_DIR}/penpal-server" ]; then
     echo "==> Saved previous binary as penpal-server.prev"
 fi
 
-# Strip leading v for archive name
-VER_NUM="${VERSION#v}"
 ARCHIVE="penpal-server-linux-${ARCH}.tar.gz"
 URL="https://github.com/${REPO}/releases/download/${VERSION}/${ARCHIVE}"
 
@@ -58,7 +56,7 @@ echo "==> Downloading ${ARCHIVE}"
 TMPDIR=$(mktemp -d)
 trap "rm -rf $TMPDIR" EXIT
 
-curl -sL -o "${TMPDIR}/${ARCHIVE}" "$URL"
+curl -sfL -o "${TMPDIR}/${ARCHIVE}" "$URL"
 tar -xzf "${TMPDIR}/${ARCHIVE}" -C "$TMPDIR"
 cp "${TMPDIR}/penpal-server" "${INSTALL_DIR}/penpal-server"
 chown penpal:penpal "${INSTALL_DIR}/penpal-server"
@@ -68,7 +66,7 @@ chmod 755 "${INSTALL_DIR}/penpal-server"
 if [ ! -f "${INSTALL_DIR}/graph.json" ] || [ "$FORCE_GRAPH" = true ]; then
     echo "==> Downloading graph.json"
     GRAPH_URL="https://github.com/${REPO}/releases/download/${VERSION}/graph.json"
-    curl -sL -o "${INSTALL_DIR}/graph.json" "$GRAPH_URL"
+    curl -sfL -o "${INSTALL_DIR}/graph.json" "$GRAPH_URL"
     chown penpal:penpal "${INSTALL_DIR}/graph.json"
 fi
 
