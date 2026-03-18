@@ -14,8 +14,6 @@ import (
 	"github.com/seastco/penpal/internal/protocol"
 )
 
-type trackingTickMsg time.Time
-
 // TrackingModel displays the relay log for a letter.
 type TrackingModel struct {
 	app      *AppState
@@ -74,8 +72,6 @@ func (m TrackingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case trackingLoadedMsg:
 		m.tracking = msg.tracking
 		m.loading = false
-	case trackingTickMsg:
-		// no-op, kept for type compatibility
 	case errMsg:
 		m.err = msg.err.Error()
 		m.loading = false

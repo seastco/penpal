@@ -215,9 +215,6 @@ type InTransitItem struct {
 	ShippingTier string            `json:"shipping_tier"`
 	Route        []models.RouteHop `json:"route"`
 	ReleaseAt    time.Time         `json:"release_at"`
-	// Deprecated aliases kept for backward compat with e2e test
-	SenderName string    `json:"sender_name"`
-	SenderID   uuid.UUID `json:"sender_id"`
 }
 
 type InTransitResponse struct {

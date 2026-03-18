@@ -461,7 +461,7 @@ func TestInTransit_CursorAndTracking(t *testing.T) {
 	m := NewInTransitModel(testApp())
 	msgID := uuid.New()
 	m.items = []protocol.InTransitItem{
-		{MessageID: msgID, SenderName: "alice", OriginCity: "Boston"},
+		{MessageID: msgID, PeerName: "alice", OriginCity: "Boston"},
 	}
 	m.loading = false
 

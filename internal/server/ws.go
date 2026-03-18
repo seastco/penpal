@@ -9,6 +9,7 @@ import (
 	"log"
 	"math"
 	mathrand "math/rand"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -684,8 +685,6 @@ func (c *Client) handleGetInTransit(ctx context.Context, env protocol.Envelope) 
 			ShippingTier: string(r.ShippingTier),
 			Route:        r.Route,
 			ReleaseAt:    r.ReleaseAt,
-			SenderName:   r.SenderName,
-			SenderID:     r.SenderID,
 		})
 	}
 
@@ -700,8 +699,6 @@ func (c *Client) handleGetInTransit(ctx context.Context, env protocol.Envelope) 
 			ShippingTier: string(r.ShippingTier),
 			Route:        r.Route,
 			ReleaseAt:    r.ReleaseAt,
-			SenderName:   r.RecipientName,
-			SenderID:     r.SenderID,
 		})
 	}
 
@@ -843,6 +840,12 @@ func (c *Client) handleBlockUser(ctx context.Context, env protocol.Envelope) err
 	var req protocol.BlockUserRequest
 	if err := json.Unmarshal(data, &req); err != nil {
 		return fmt.Errorf("invalid block request: %w", err)
+	}
+	if req.UserID == c.userID {
+		return fmt.Errorf("cannot block yourself")
+	}
+	if req.UserID == SystemUserID {
+		return fmt.Errorf("cannot block system user")
 	}
 	return c.server.db.BlockUser(ctx, c.userID, req.UserID)
 }
@@ -1032,10 +1035,10 @@ func remoteIP(r *http.Request, trustProxy bool) string {
 			return strings.TrimSpace(fwd)
 		}
 	}
-	// Strip port from RemoteAddr
-	addr := r.RemoteAddr
-	if i := strings.LastIndex(addr, ":"); i != -1 {
-		return addr[:i]
+	// Strip port from RemoteAddr (handles IPv6 like [::1]:8080)
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
 	}
-	return addr
+	return host
 }

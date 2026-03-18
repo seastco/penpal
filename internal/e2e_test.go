@@ -213,7 +213,7 @@ func TestEndToEnd(t *testing.T) {
 	if len(transit.Letters) != 1 {
 		t.Fatalf("expected 1 in-transit letter, got %d", len(transit.Letters))
 	}
-	t.Logf("Jake sees incoming letter from %s via %s", transit.Letters[0].SenderName, transit.Letters[0].ShippingTier)
+	t.Logf("Jake sees incoming letter from %s via %s", transit.Letters[0].PeerName, transit.Letters[0].ShippingTier)
 
 	// ===== Step 9: Steven checks sent =====
 	t.Log("=== Steven checks sent ===")
