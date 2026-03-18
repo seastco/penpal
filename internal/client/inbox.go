@@ -239,7 +239,7 @@ func NewReadLetterModel(app *AppState, item protocol.InboxItem, body string) Rea
 		}
 	}
 	vp.SetContent(rendered)
-	return ReadLetterModel{app: app, item: item, body: body, viewport: vp}
+	return ReadLetterModel{app: app, item: item, body: body, viewport: vp, isContact: true}
 }
 
 type readLetterContactsMsg struct {
@@ -289,12 +289,14 @@ func (m ReadLetterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg { return backToInboxMsg{} }
 		}
 	case readLetterContactsMsg:
+		found := false
 		for _, c := range msg.contacts {
 			if c.UserID == m.item.SenderID {
-				m.isContact = true
+				found = true
 				break
 			}
 		}
+		m.isContact = found
 	case contactAddedInReadMsg:
 		m.isContact = true
 		m.addedContact = true

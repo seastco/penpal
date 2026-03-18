@@ -70,7 +70,7 @@ func NewComposeModel(app *AppState) ComposeModel {
 	ta.Prompt = ""
 	ta.SetWidth(contentWidth())
 	ta.SetHeight(10)
-	ta.CharLimit = 50000 // backstop; real limit is 5000 words
+	ta.CharLimit = 0 // no char limit; word limit enforced on send
 
 	return ComposeModel{
 		app:            app,
