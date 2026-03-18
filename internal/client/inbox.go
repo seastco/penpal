@@ -317,7 +317,7 @@ func (m ReadLetterModel) View() string {
 	sentDate := m.item.SentAt.Format("Jan 2 3:04pm")
 	arrDate := m.item.DeliveredAt.Format("Jan 2 3:04pm")
 
-	header := fmt.Sprintf("  FROM: %s\n  SENT: %s  ARRIVED: %s",
+	header := fmt.Sprintf("FROM: %s\nSENT: %s  ARRIVED: %s",
 		selectedStyle.Render(m.item.SenderName), sentDate, arrDate)
 	header += "\n" + divider(contentWidth()) + "\n"
 
