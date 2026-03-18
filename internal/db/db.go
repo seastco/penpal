@@ -359,7 +359,7 @@ func (d *DB) DeliverMessages(ctx context.Context) ([]models.Message, error) {
 		return nil, err
 	}
 
-	// Transfer attached stamps to recipients
+	// Transfer attached stamps to recipients and record discoveries
 	for _, m := range delivered {
 		_, err := tx.ExecContext(ctx,
 			`UPDATE stamps SET owner_id = $1, earned_via = 'transfer', source_msg = $2
@@ -783,4 +783,31 @@ func (d *DB) ReapGhostAccounts(ctx context.Context, inactiveBefore time.Time) (i
 	}
 	return result.RowsAffected()
 }
+
+// UserAddress is a username#discriminator pair.
+type UserAddress struct {
+	Username      string
+	Discriminator string
+}
+
+// GetAllUsers returns all registered user addresses.
+func (d *DB) GetAllUsers(ctx context.Context) ([]UserAddress, error) {
+	rows, err := d.pool.QueryContext(ctx,
+		`SELECT username, discriminator FROM users ORDER BY username, discriminator`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []UserAddress
+	for rows.Next() {
+		var u UserAddress
+		if err := rows.Scan(&u.Username, &u.Discriminator); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, rows.Err()
+}
+
 

@@ -39,20 +39,6 @@ var commonStampPool = []string{
 	"common:moon", "common:bird", "common:rainbow", "common:clover",
 }
 
-// allStateStamps is the set of all 50 US state stamps.
-var allStateStamps = []string{
-	"state:ak", "state:al", "state:ar", "state:az", "state:ca",
-	"state:co", "state:ct", "state:de", "state:fl", "state:ga",
-	"state:hi", "state:ia", "state:id", "state:il", "state:in",
-	"state:ks", "state:ky", "state:la", "state:ma", "state:md",
-	"state:me", "state:mi", "state:mn", "state:mo", "state:ms",
-	"state:mt", "state:nc", "state:nd", "state:ne", "state:nh",
-	"state:nj", "state:nm", "state:nv", "state:ny", "state:oh",
-	"state:ok", "state:or", "state:pa", "state:ri", "state:sc",
-	"state:sd", "state:tn", "state:tx", "state:ut", "state:va",
-	"state:vt", "state:wa", "state:wi", "state:wv", "state:wy",
-}
-
 // pickNDistinct returns n distinct random elements from pool using partial Fisher-Yates.
 func pickNDistinct(pool []string, n int) []string {
 	if n >= len(pool) {
@@ -70,7 +56,17 @@ func pickNDistinct(pool []string, n int) []string {
 	return tmp[:n]
 }
 
-
+// stateFromCity extracts a "state:xx" stamp type from a "City, ST" string.
+func stateFromCity(homeCity string) string {
+	parts := strings.SplitN(homeCity, ", ", 2)
+	if len(parts) == 2 {
+		code := strings.ToLower(strings.TrimSpace(parts[1]))
+		if len(code) == 2 {
+			return "state:" + code
+		}
+	}
+	return ""
+}
 
 func (c *Client) Send(msgType string, payload any) {
 	select {
@@ -317,9 +313,11 @@ func (c *Client) handleRegister(ctx context.Context, env protocol.Envelope) erro
 		c.server.db.CreateStamp(ctx, user.ID, st, models.RarityCommon, models.EarnedRegistration)
 	}
 
-	// Award 5 distinct random state stamps
-	for _, st := range pickNDistinct(allStateStamps, 5) {
-		c.server.db.CreateStamp(ctx, user.ID, st, models.RarityCommon, models.EarnedRegistration)
+	// Award 5 home state stamps
+	if homeState := stateFromCity(req.HomeCity); homeState != "" {
+		for i := 0; i < 5; i++ {
+			c.server.db.CreateStamp(ctx, user.ID, homeState, models.RarityCommon, models.EarnedRegistration)
+		}
 	}
 
 	c.userID = user.ID
@@ -536,10 +534,12 @@ func (s *Server) awardWeeklyStamp(ctx context.Context, userID uuid.UUID, homeCit
 		return
 	}
 
-	// Pool = all common + all state stamps
-	pool := make([]string, 0, len(commonStampPool)+len(allStateStamps))
+	// Pool = all common + home state stamp
+	pool := make([]string, 0, len(commonStampPool)+1)
 	pool = append(pool, commonStampPool...)
-	pool = append(pool, allStateStamps...)
+	if homeState := stateFromCity(homeCity); homeState != "" {
+		pool = append(pool, homeState)
+	}
 
 	// Award 2 distinct random stamps
 	for _, pick := range pickNDistinct(pool, 2) {
