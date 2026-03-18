@@ -34,9 +34,9 @@ const (
 
 // HomeModel is the main menu screen.
 type HomeModel struct {
-	app       *AppState
-	inboxNew  int
-	transitN  int
+	app      *AppState
+	inboxNew int
+	transitN int
 }
 
 func NewHomeModel(app *AppState) HomeModel {

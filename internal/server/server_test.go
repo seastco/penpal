@@ -128,8 +128,8 @@ func TestStateFromCity(t *testing.T) {
 		{"Boston, MA", "state:ma"},
 		{"", ""},
 		{"NoCommaHere", ""},
-		{"City, ABC", ""},   // not 2-letter code
-		{"City, ", ""},      // empty state
+		{"City, ABC", ""}, // not 2-letter code
+		{"City, ", ""},    // empty state
 	}
 
 	for _, tt := range tests {
@@ -145,12 +145,12 @@ func TestValidCoords(t *testing.T) {
 		lat, lng float64
 		valid    bool
 	}{
-		{42.36, -71.06, true},   // Boston
-		{0, 0, true},            // equator/prime meridian
-		{-90, -180, true},       // boundary
-		{90, 180, true},         // boundary
-		{91, 0, false},          // lat out of range
-		{0, 181, false},         // lng out of range
+		{42.36, -71.06, true}, // Boston
+		{0, 0, true},          // equator/prime meridian
+		{-90, -180, true},     // boundary
+		{90, 180, true},       // boundary
+		{91, 0, false},        // lat out of range
+		{0, 181, false},       // lng out of range
 		{-91, 0, false},
 		{0, -181, false},
 	}

@@ -13,8 +13,8 @@ import (
 
 // AddressBookModel shows the user's contacts.
 type AddressBookModel struct {
-	app      *AppState
-	contacts []protocol.ContactItem
+	app           *AppState
+	contacts      []protocol.ContactItem
 	cursor        int
 	viewport      viewport.Model
 	loading       bool

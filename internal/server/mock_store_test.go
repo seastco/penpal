@@ -39,7 +39,7 @@ func newMockStore() *mockStore {
 }
 
 func (m *mockStore) Migrate(_ context.Context) error { return nil }
-func (m *mockStore) Close() error                     { return nil }
+func (m *mockStore) Close() error                    { return nil }
 
 func (m *mockStore) CreateUser(_ context.Context, username string, publicKey []byte, homeCity string, lat, lng float64) (*models.User, error) {
 	m.mu.Lock()

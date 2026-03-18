@@ -198,11 +198,11 @@ func main() {
 	tiers := []string{"first_class", "priority", "express"}
 
 	type peer struct {
-		id      uuid.UUID
-		name    string
-		city    cityInfo
-		pub     ed25519.PublicKey
-		priv    ed25519.PrivateKey
+		id   uuid.UUID
+		name string
+		city cityInfo
+		pub  ed25519.PublicKey
+		priv ed25519.PrivateKey
 	}
 
 	// Create 50 peers with real keypairs

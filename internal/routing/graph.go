@@ -77,9 +77,9 @@ type Edge struct {
 
 // Graph holds the city routing graph.
 type Graph struct {
-	Cities    []City   `json:"cities"`
-	Adjacency [][]Edge `json:"-"` // adjacency list, not serialized
-	coordIdx  map[[2]float64]int  // exact (lat,lng) → city index for O(1) lookup
+	Cities    []City             `json:"cities"`
+	Adjacency [][]Edge           `json:"-"` // adjacency list, not serialized
+	coordIdx  map[[2]float64]int // exact (lat,lng) → city index for O(1) lookup
 }
 
 // NewGraph builds a routing graph from a list of cities, connecting each city

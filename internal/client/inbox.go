@@ -221,12 +221,12 @@ type composeToMsg struct {
 
 // ReadLetterModel displays a single letter.
 type ReadLetterModel struct {
-	app        *AppState
-	item       protocol.InboxItem
-	body       string
-	viewport   viewport.Model
-	err        string
-	isContact  bool
+	app          *AppState
+	item         protocol.InboxItem
+	body         string
+	viewport     viewport.Model
+	err          string
+	isContact    bool
 	addedContact bool
 }
 

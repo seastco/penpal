@@ -32,8 +32,8 @@ type SettingsModel struct {
 	cityIdx     int
 
 	// Theme picker state
-	themeIdx    int
-	prevTheme   string // to revert on cancel
+	themeIdx  int
+	prevTheme string // to revert on cancel
 
 }
 
@@ -52,7 +52,7 @@ func NewSettingsModel(app *AppState) SettingsModel {
 	}
 
 	return SettingsModel{
-		app:      app,
+		app:       app,
 		cityInput: ti,
 		themeIdx:  themeIdx,
 	}

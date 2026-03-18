@@ -18,4 +18,3 @@ type User struct {
 	LastActive    time.Time `json:"last_active" db:"last_active"`
 	CreatedAt     time.Time `json:"created_at" db:"created_at"`
 }
-
