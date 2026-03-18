@@ -371,7 +371,7 @@ func (m *StampsModel) buildSlots() {
 			startIdx: rrStart,
 		})
 	} else {
-		// No rare stamps yet — show single mystery placeholder
+		// No rare stamps discovered — show single mystery placeholder
 		rrSlots = []stampSlot{{
 			stampType: "rare:unknown",
 			emoji:     "?",
@@ -506,6 +506,7 @@ func (m StampsModel) renderDetail(slot stampSlot) string {
 		rarityLabel := string(slot.stamp.Rarity)
 		rarityColor := stampRarityBorderColor(slot.stamp.Rarity)
 		b.WriteString(fmt.Sprintf("Rarity    %s\n", lipgloss.NewStyle().Foreground(rarityColor).Render(rarityLabel)))
+		b.WriteString(fmt.Sprintf("Origin    %s\n", mutedStyle.Render(earnedViaLabel(slot.stamp.EarnedVia))))
 
 		if isRare {
 			b.WriteString(fmt.Sprintf("Earned    %s\n", mutedStyle.Render(slot.stamp.CreatedAt.Format("Jan 2, 2006"))))
@@ -604,15 +605,18 @@ func renderStampCard(slot stampSlot, selected bool) string {
 	}
 	icon = lipgloss.PlaceHorizontal(stampCardInnerW, lipgloss.Center, icon)
 
-	// Common/rare: emoji only. State/country: keep name + count.
-	emojiOnly := strings.HasPrefix(slot.stampType, "common:") || strings.HasPrefix(slot.stampType, "rare:")
+	hasName := strings.HasPrefix(slot.stampType, "state:") || strings.HasPrefix(slot.stampType, "country:")
 
 	var content string
-	if !slot.collected || emojiOnly {
+	if !slot.collected {
 		content = "\n\n" + icon + "\n\n"
-	} else {
+	} else if hasName {
 		name := lipgloss.PlaceHorizontal(stampCardInnerW, lipgloss.Center, slot.displayName)
-		content = "\n" + icon + "\n\n" + name + "\n"
+		count := lipgloss.PlaceHorizontal(stampCardInnerW, lipgloss.Center, mutedStyle.Render(fmt.Sprintf("×%d", slot.count)))
+		content = "\n" + icon + "\n" + name + "\n" + count
+	} else {
+		count := lipgloss.PlaceHorizontal(stampCardInnerW, lipgloss.Center, mutedStyle.Render(fmt.Sprintf("×%d", slot.count)))
+		content = "\n\n" + icon + "\n" + count + "\n"
 	}
 	return cardStyle.Render(content)
 }
@@ -727,6 +731,23 @@ func rareDisplayName(key string) string {
 		return "Collector"
 	default:
 		return key
+	}
+}
+
+func earnedViaLabel(via models.EarnedVia) string {
+	switch via {
+	case "registration":
+		return "Registration bonus"
+	case "weekly":
+		return "Weekly reward"
+	case "transfer":
+		return "Received in a letter"
+	case "mint":
+		return "Gift"
+	case "delivery", "route":
+		return "Delivery bonus"
+	default:
+		return string(via)
 	}
 }
 

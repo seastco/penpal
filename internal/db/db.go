@@ -359,7 +359,7 @@ func (d *DB) DeliverMessages(ctx context.Context) ([]models.Message, error) {
 		return nil, err
 	}
 
-	// Transfer attached stamps to recipients
+	// Transfer attached stamps to recipients and record discoveries
 	for _, m := range delivered {
 		_, err := tx.ExecContext(ctx,
 			`UPDATE stamps SET owner_id = $1, earned_via = 'transfer', source_msg = $2
@@ -809,4 +809,5 @@ func (d *DB) GetAllUsers(ctx context.Context) ([]UserAddress, error) {
 	}
 	return users, rows.Err()
 }
+
 

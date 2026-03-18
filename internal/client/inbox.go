@@ -201,7 +201,7 @@ func (m InboxModel) View() string {
 	}
 	m = m.syncViewport()
 	bh := adaptiveBoxHeight(len(m.items), 6)
-	footer := "\n\n" + helpStyle.Render("[up/dn] select  [enter] read  [r] reply  [b] back")
+	footer := "\n\n" + helpStyle.Render("[enter] read  [r] reply  [b] back")
 	return screenBox().Height(bh).Render(header + m.viewport.View() + footer)
 }
 

@@ -802,7 +802,7 @@ func (m ComposeModel) viewShipping() string {
 	if m.err != "" {
 		content += "\n" + errorStyle.Render(m.err) + "\n"
 	}
-	content += "\n" + helpStyle.Render("[up/dn] select  [enter] next  [b] back")
+	content += "\n" + helpStyle.Render("[enter] select  [b] back")
 	return screenBox().Render(content)
 }
 
