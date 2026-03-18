@@ -142,8 +142,7 @@ Usage:
   penpal --help       Show this help
 
 Environment:
-  PENPAL_SERVER       Server URL (default: wss://getpenpal.dev)
-  PENPAL_HOME         Config directory (default: ~/.penpal)
+  PENPAL_HOME         Account directory (default: ~/.penpal)
 `)
 }
 
