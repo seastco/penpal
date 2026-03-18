@@ -7,8 +7,8 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/stove/penpal/internal/models"
 	pencrypto "github.com/stove/penpal/internal/crypto"
+	"github.com/stove/penpal/internal/models"
 )
 
 // RegisterModel handles the registration and recovery flows.

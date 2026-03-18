@@ -521,16 +521,16 @@ func (d *DB) GetSentWithRecipients(ctx context.Context, userID uuid.UUID, before
 
 // InTransitRow is an in-transit message with both sender and recipient info pre-joined.
 type InTransitRow struct {
-	ID           uuid.UUID
-	SenderID     uuid.UUID
-	RecipientID  uuid.UUID
-	ShippingTier models.ShippingTier
-	Route        []models.RouteHop
-	ReleaseAt    time.Time
-	SenderName   string
-	OriginCity   string
+	ID            uuid.UUID
+	SenderID      uuid.UUID
+	RecipientID   uuid.UUID
+	ShippingTier  models.ShippingTier
+	Route         []models.RouteHop
+	ReleaseAt     time.Time
+	SenderName    string
+	OriginCity    string
 	RecipientName string
-	DestCity     string
+	DestCity      string
 }
 
 // GetInTransitWithUsers returns in-transit messages addressed to a user, with sender/recipient info.
@@ -809,5 +809,3 @@ func (d *DB) GetAllUsers(ctx context.Context) ([]UserAddress, error) {
 	}
 	return users, rows.Err()
 }
-
-

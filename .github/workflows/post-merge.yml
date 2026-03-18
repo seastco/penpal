@@ -1,0 +1,33 @@
+name: Post-Merge
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Fuzz crypto Decrypt
+        run: go test ./internal/crypto -fuzz FuzzDecrypt -fuzztime 30s
+
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Crypto benchmarks
+        run: go test ./internal/crypto -bench=. -benchmem -count=1
+
+      - name: Routing benchmarks
+        run: go test ./internal/routing -bench=. -benchmem -count=1

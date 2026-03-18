@@ -170,10 +170,10 @@ type Message struct {
 
 // RouteHop represents a single relay node in a letter's route.
 type RouteHop struct {
-	City  string  `json:"city"`
-	Code  string  `json:"code"`
-	Relay string  `json:"relay"`
-	Lat   float64 `json:"lat"`
-	Lng   float64 `json:"lng"`
+	City  string    `json:"city"`
+	Code  string    `json:"code"`
+	Relay string    `json:"relay"`
+	Lat   float64   `json:"lat"`
+	Lng   float64   `json:"lng"`
 	ETA   time.Time `json:"eta"`
 }

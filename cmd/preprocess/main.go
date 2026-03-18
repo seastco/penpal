@@ -2,7 +2,8 @@
 // city graph with KNN neighbor connections for the routing engine.
 //
 // Usage:
-//   go run ./cmd/preprocess -input data/uscities.csv -output data/graph.json
+//
+//	go run ./cmd/preprocess -input data/uscities.csv -output data/graph.json
 //
 // The input CSV should have columns: city, state_id, lat, lng, population
 // Download from: https://simplemaps.com/data/us-cities (free basic version)

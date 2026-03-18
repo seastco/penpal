@@ -10,11 +10,11 @@ import (
 
 // TUI is the root bubbletea model that orchestrates screen switching.
 type TUI struct {
-	app          *AppState
-	currentModel tea.Model
-	screen       Screen
-	cachedInbox    *InboxModel // preserved when entering a letter, restored on back
-	readingMsgIdx  int        // index of the letter currently being read
+	app           *AppState
+	currentModel  tea.Model
+	screen        Screen
+	cachedInbox   *InboxModel // preserved when entering a letter, restored on back
+	readingMsgIdx int         // index of the letter currently being read
 }
 
 // NewTUI creates the root TUI model.

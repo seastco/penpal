@@ -160,15 +160,15 @@ func (m PinEntryModel) View() string {
 // --- PIN Setup (optional, after registration) ---
 
 type PinSetupModel struct {
-	app      *AppState
-	digits   []rune
-	first    string // saved first entry
-	phase    int    // 0 = verify old (if exists), 1 = enter new, 2 = confirm new
-	err      string
-	hasPin   bool   // whether a PIN existed when we started
-	shaking  bool
+	app       *AppState
+	digits    []rune
+	first     string // saved first entry
+	phase     int    // 0 = verify old (if exists), 1 = enter new, 2 = confirm new
+	err       string
+	hasPin    bool // whether a PIN existed when we started
+	shaking   bool
 	shakeTick int
-	origin   Screen // screen to return to when done
+	origin    Screen // screen to return to when done
 }
 
 func NewPinSetupModel(app *AppState) PinSetupModel {

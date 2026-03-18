@@ -23,7 +23,7 @@ type Config struct {
 // Server is the penpal relay server.
 type Server struct {
 	cfg        Config
-	db         *db.DB
+	db         db.Store
 	graph      *routing.Graph
 	hub        *Hub
 	limiter    *IPRateLimiter
@@ -155,8 +155,8 @@ func (s *Server) deliveryLoop(ctx context.Context) {
 			for _, msg := range delivered {
 				log.Printf("delivered message %s to user %s", msg.ID, msg.RecipientID)
 				s.hub.SendToUser(msg.RecipientID, "new_delivery", map[string]any{
-					"message_id":  msg.ID,
-					"sender_id":   msg.SenderID,
+					"message_id": msg.ID,
+					"sender_id":  msg.SenderID,
 				})
 			}
 		}

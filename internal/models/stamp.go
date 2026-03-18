@@ -60,4 +60,3 @@ type Stamp struct {
 	SourceMsg *uuid.UUID  `json:"source_msg,omitempty" db:"source_msg"`
 	CreatedAt time.Time   `json:"created_at" db:"created_at"`
 }
-

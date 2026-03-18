@@ -7,7 +7,7 @@ on:
     branches: [master]
 
 jobs:
-  build:
+  unit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,14 +16,64 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+
+      - name: Check go.mod is tidy
+        run: go mod tidy && git diff --exit-code go.mod go.sum
+
       - run: go vet ./...
 
-      - run: go test ./internal/crypto -v
-
-      - run: go test ./internal/routing -v
-
-      - run: go test ./internal/client -v
+      - run: go test ./internal/crypto ./internal/routing ./internal/client ./internal/server -v -count=1
 
       - run: go build ./cmd/penpal
 
       - run: go build ./cmd/server
+
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: penpal
+          POSTGRES_PASSWORD: penpal
+          POSTGRES_DB: penpal
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U penpal"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build server
+        run: go build -o ./bin/server ./cmd/server
+
+      - name: Start server
+        run: ./bin/server &
+        env:
+          PENPAL_DB: postgres://penpal:penpal@localhost:5432/penpal?sslmode=disable
+          PENPAL_CITIES: data/graph_e2e.json
+          PENPAL_LISTEN: :8282
+
+      - name: Wait for server
+        run: |
+          for i in 1 2 3 4 5; do
+            if curl -sf http://localhost:8282/v1/health; then
+              echo " server ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "server failed to start"
+          exit 1
+
+      - name: Run e2e tests
+        run: go test ./internal/ -v -run TestEndToEnd -count=1 -timeout 120s

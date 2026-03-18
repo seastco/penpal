@@ -12,47 +12,46 @@ type MessageType string
 
 const (
 	// Client -> Server
-	MsgRegister     MessageType = "register"
-	MsgAuth         MessageType = "auth"
-	MsgAuthResponse MessageType = "auth_response"
-	MsgSendLetter   MessageType = "send_letter"
-	MsgGetInbox     MessageType = "get_inbox"
-	MsgGetSent      MessageType = "get_sent"
-	MsgGetInTransit MessageType = "get_in_transit"
-	MsgGetTracking  MessageType = "get_tracking"
-	MsgMarkRead     MessageType = "mark_read"
-	MsgAddContact   MessageType = "add_contact"
-	MsgGetContacts  MessageType = "get_contacts"
+	MsgRegister        MessageType = "register"
+	MsgAuth            MessageType = "auth"
+	MsgAuthResponse    MessageType = "auth_response"
+	MsgSendLetter      MessageType = "send_letter"
+	MsgGetInbox        MessageType = "get_inbox"
+	MsgGetSent         MessageType = "get_sent"
+	MsgGetInTransit    MessageType = "get_in_transit"
+	MsgGetTracking     MessageType = "get_tracking"
+	MsgMarkRead        MessageType = "mark_read"
+	MsgAddContact      MessageType = "add_contact"
+	MsgGetContacts     MessageType = "get_contacts"
 	MsgDeleteContact   MessageType = "delete_contact"
 	MsgDeleteContactOK MessageType = "delete_contact_ok"
-	MsgBlockUser    MessageType = "block_user"
-	MsgGetStamps    MessageType = "get_stamps"
-	MsgGetMessage   MessageType = "get_message"
-	MsgGetPublicKey MessageType = "get_public_key"
-	MsgSearchCities MessageType = "search_cities"
+	MsgBlockUser       MessageType = "block_user"
+	MsgGetStamps       MessageType = "get_stamps"
+	MsgGetMessage      MessageType = "get_message"
+	MsgGetPublicKey    MessageType = "get_public_key"
+	MsgSearchCities    MessageType = "search_cities"
 	MsgGetShipping     MessageType = "get_shipping"
 	MsgUpdateHomeCity  MessageType = "update_home_city"
 	MsgRecover         MessageType = "recover"
 
 	// Server -> Client
-	MsgRegisterOK     MessageType = "register_ok"
-	MsgAuthChallenge  MessageType = "auth_challenge"
-	MsgAuthOK         MessageType = "auth_ok"
-	MsgError          MessageType = "error"
-	MsgLetterSent     MessageType = "letter_sent"
-	MsgInbox          MessageType = "inbox"
-	MsgSentList       MessageType = "sent_list"
-	MsgInTransitList  MessageType = "in_transit_list"
-	MsgTracking       MessageType = "tracking"
-	MsgContactsList   MessageType = "contacts_list"
-	MsgStampsList     MessageType = "stamps_list"
-	MsgMessage        MessageType = "message"
-	MsgPublicKey      MessageType = "public_key"
-	MsgCityResults    MessageType = "city_results"
-	MsgShippingInfo      MessageType = "shipping_info"
-	MsgHomeCityUpdated   MessageType = "home_city_updated"
-	MsgRecoverOK         MessageType = "recover_ok"
-
+	MsgRegisterOK      MessageType = "register_ok"
+	MsgAuthChallenge   MessageType = "auth_challenge"
+	MsgAuthOK          MessageType = "auth_ok"
+	MsgError           MessageType = "error"
+	MsgLetterSent      MessageType = "letter_sent"
+	MsgInbox           MessageType = "inbox"
+	MsgSentList        MessageType = "sent_list"
+	MsgInTransitList   MessageType = "in_transit_list"
+	MsgTracking        MessageType = "tracking"
+	MsgContactsList    MessageType = "contacts_list"
+	MsgStampsList      MessageType = "stamps_list"
+	MsgMessage         MessageType = "message"
+	MsgPublicKey       MessageType = "public_key"
+	MsgCityResults     MessageType = "city_results"
+	MsgShippingInfo    MessageType = "shipping_info"
+	MsgHomeCityUpdated MessageType = "home_city_updated"
+	MsgRecoverOK       MessageType = "recover_ok"
 )
 
 // Envelope wraps all WebSocket messages.
@@ -66,9 +65,9 @@ type Envelope struct {
 // --- Request payloads ---
 
 type RegisterRequest struct {
-	Username  string `json:"username"`
-	PublicKey []byte `json:"public_key"`
-	HomeCity  string `json:"home_city"`
+	Username  string  `json:"username"`
+	PublicKey []byte  `json:"public_key"`
+	HomeCity  string  `json:"home_city"`
 	HomeLat   float64 `json:"home_lat"`
 	HomeLng   float64 `json:"home_lng"`
 }
@@ -83,10 +82,10 @@ type AuthResponsePayload struct {
 }
 
 type SendLetterRequest struct {
-	RecipientID   uuid.UUID    `json:"recipient_id"`
-	EncryptedBody []byte       `json:"encrypted_body"`
-	ShippingTier  string       `json:"shipping_tier"`
-	StampIDs      []uuid.UUID  `json:"stamp_ids,omitempty"`
+	RecipientID   uuid.UUID   `json:"recipient_id"`
+	EncryptedBody []byte      `json:"encrypted_body"`
+	ShippingTier  string      `json:"shipping_tier"`
+	StampIDs      []uuid.UUID `json:"stamp_ids,omitempty"`
 }
 
 type MarkReadRequest struct {
@@ -168,10 +167,10 @@ type RecoverResponse struct {
 }
 
 type LetterSentResponse struct {
-	MessageID uuid.UUID        `json:"message_id"`
+	MessageID uuid.UUID         `json:"message_id"`
 	Route     []models.RouteHop `json:"route"`
-	ReleaseAt time.Time        `json:"release_at"`
-	Distance  float64          `json:"distance"`
+	ReleaseAt time.Time         `json:"release_at"`
+	Distance  float64           `json:"distance"`
 }
 
 type InboxItem struct {
@@ -192,13 +191,13 @@ type InboxResponse struct {
 }
 
 type SentItem struct {
-	MessageID    uuid.UUID         `json:"message_id"`
-	RecipientName string           `json:"recipient_name"`
-	RecipientID  uuid.UUID         `json:"recipient_id"`
-	SentAt       time.Time         `json:"sent_at"`
-	ShippingTier string            `json:"shipping_tier"`
-	Status       string            `json:"status"`
-	Route        []models.RouteHop `json:"route"`
+	MessageID     uuid.UUID         `json:"message_id"`
+	RecipientName string            `json:"recipient_name"`
+	RecipientID   uuid.UUID         `json:"recipient_id"`
+	SentAt        time.Time         `json:"sent_at"`
+	ShippingTier  string            `json:"shipping_tier"`
+	Status        string            `json:"status"`
+	Route         []models.RouteHop `json:"route"`
 }
 
 type SentResponse struct {
@@ -208,8 +207,8 @@ type SentResponse struct {
 
 type InTransitItem struct {
 	MessageID    uuid.UUID         `json:"message_id"`
-	Direction    string            `json:"direction"`     // "incoming" or "outgoing"
-	PeerName     string            `json:"peer_name"`     // sender (incoming) or recipient (outgoing)
+	Direction    string            `json:"direction"` // "incoming" or "outgoing"
+	PeerName     string            `json:"peer_name"` // sender (incoming) or recipient (outgoing)
 	PeerID       uuid.UUID         `json:"peer_id"`
 	OriginCity   string            `json:"origin_city"`
 	DestCity     string            `json:"dest_city"`

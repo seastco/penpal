@@ -6,10 +6,10 @@ import (
 )
 
 const (
-	maxConnsPerIP      = 50
-	maxRegsPerIP       = 10
-	regWindowDuration  = 1 * time.Hour
-	cleanupInterval    = 10 * time.Minute
+	maxConnsPerIP     = 50
+	maxRegsPerIP      = 10
+	regWindowDuration = 1 * time.Hour
+	cleanupInterval   = 10 * time.Minute
 )
 
 // IPRateLimiter tracks per-IP connection and registration counts.
