@@ -289,6 +289,9 @@ func (m InTransitModel) syncViewport() InTransitModel {
 func (m InTransitModel) View() string {
 	title := titleStyle.Render("IN TRANSIT")
 	header := title + "\n" + divider(contentWidth()) + "\n"
+	if m.loading {
+		return emptyScreenView(header, "", "[b] back")
+	}
 	if len(m.items) == 0 {
 		body := "\n" + mutedStyle.Render("no letters in transit")
 		if m.err != "" {
@@ -448,6 +451,9 @@ func (m SentModel) syncViewport() SentModel {
 func (m SentModel) View() string {
 	title := titleStyle.Render("SENT")
 	header := title + "\n" + divider(contentWidth()) + "\n"
+	if m.loading {
+		return emptyScreenView(header, "", "[b] back")
+	}
 	if len(m.items) == 0 {
 		body := "\n" + mutedStyle.Render("no letters yet")
 		if m.err != "" {

@@ -54,10 +54,6 @@ type ComposeModel struct {
 	showingOriginal  bool
 	originalViewport viewport.Model
 
-	// Contact status for reply-to-unknown
-	recipientIsContact bool
-	addedContact       bool
-
 	origin Screen // screen to return to on Esc
 }
 
@@ -134,8 +130,6 @@ type letterSentMsg struct {
 	resp *protocol.LetterSentResponse
 }
 
-type contactAddedInComposeMsg struct{}
-
 func (m ComposeModel) Init() tea.Cmd {
 	return tea.Batch(textinput.Blink, func() tea.Msg {
 		contacts, err := m.app.Network.GetContacts(context.Background())
@@ -162,8 +156,6 @@ func (m ComposeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.step == 0 {
 			m.filterContacts()
 		}
-		// Check if current recipient is already a contact
-		m.recipientIsContact = m.isRecipientInContacts()
 		return m, nil
 	}
 
@@ -178,18 +170,6 @@ func (m ComposeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateStamp(msg)
 	}
 	return m, nil
-}
-
-func (m ComposeModel) isRecipientInContacts() bool {
-	if m.recipientID == uuid.Nil {
-		return true
-	}
-	for _, c := range m.contacts {
-		if c.UserID == m.recipientID {
-			return true
-		}
-	}
-	return false
 }
 
 func (m ComposeModel) updateRecipient(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -218,7 +198,6 @@ func (m ComposeModel) updateRecipient(msg tea.Msg) (tea.Model, tea.Cmd) {
 				c := m.contacts[m.filteredIdx[m.recipientSel]]
 				m.recipientID = c.UserID
 				m.recipientName = c.Username
-				m.recipientIsContact = true
 				m.step = 1
 				m.recipientInput.Blur()
 				m.bodyArea.Focus()
@@ -328,7 +307,6 @@ func (m ComposeModel) updateBody(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		m.draftRestored = false
-		m.addedContact = false
 		switch msg.String() {
 		case "ctrl+r":
 			if m.originalMsgID != uuid.Nil {
@@ -345,34 +323,16 @@ func (m ComposeModel) updateBody(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.step = 2
 			m.bodyArea.Blur()
 			return m, tea.Batch(m.fetchStamps(), m.fetchShipping())
-		case "ctrl+a":
-			// Add sender to contacts (only in reply to non-contact)
-			if m.originalMsgID != uuid.Nil && !m.recipientIsContact && !m.addedContact {
-				return m, m.addRecipientAsContact()
-			}
 		case "ctrl+b", "esc":
 			m.saveDraft()
 			return m, func() tea.Msg { return switchScreenMsg{screen: m.origin} }
 		}
-	case contactAddedInComposeMsg:
-		m.recipientIsContact = true
-		m.addedContact = true
 	case errMsg:
 		m.err = msg.err.Error()
 	}
 	var cmd tea.Cmd
 	m.bodyArea, cmd = m.bodyArea.Update(msg)
 	return m, cmd
-}
-
-func (m ComposeModel) addRecipientAsContact() tea.Cmd {
-	return func() tea.Msg {
-		_, err := m.app.Network.AddContactByID(context.Background(), m.recipientID)
-		if err != nil {
-			return errMsg{err: fmt.Errorf("adding contact: %w", err)}
-		}
-		return contactAddedInComposeMsg{}
-	}
 }
 
 func (m ComposeModel) fetchShipping() tea.Cmd {
@@ -696,17 +656,10 @@ func (m ComposeModel) viewBody() string {
 		content += "\n" + mutedStyle.Render(wordLine)
 	}
 
-	if m.addedContact {
-		content += "\n" + successStyle.Render("added to contacts")
-	}
-
 	if m.err != "" {
 		content += "\n" + errorStyle.Render(m.err)
 	}
 	help := "[ctrl+s] send"
-	if m.originalMsgID != uuid.Nil && !m.recipientIsContact && !m.addedContact {
-		help += "  [ctrl+a] add to contacts"
-	}
 	if m.originalMsgID != uuid.Nil {
 		help += "  [ctrl+r] view letter"
 	}

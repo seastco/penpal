@@ -189,6 +189,9 @@ func (m InboxModel) syncViewport() InboxModel {
 func (m InboxModel) View() string {
 	title := titleStyle.Render("INBOX")
 	header := title + "\n" + divider(contentWidth()) + "\n"
+	if m.loading {
+		return emptyScreenView(header, "", "[b] back")
+	}
 	if len(m.items) == 0 {
 		body := "\n" + mutedStyle.Render("no letters yet")
 		if m.err != "" {
@@ -218,11 +221,13 @@ type composeToMsg struct {
 
 // ReadLetterModel displays a single letter.
 type ReadLetterModel struct {
-	app      *AppState
-	item     protocol.InboxItem
-	body     string
-	viewport viewport.Model
-	err      string
+	app        *AppState
+	item       protocol.InboxItem
+	body       string
+	viewport   viewport.Model
+	err        string
+	isContact  bool
+	addedContact bool
 }
 
 func NewReadLetterModel(app *AppState, item protocol.InboxItem, body string) ReadLetterModel {
@@ -237,17 +242,40 @@ func NewReadLetterModel(app *AppState, item protocol.InboxItem, body string) Rea
 	return ReadLetterModel{app: app, item: item, body: body, viewport: vp}
 }
 
+type readLetterContactsMsg struct {
+	contacts []protocol.ContactItem
+}
+
 func (m ReadLetterModel) Init() tea.Cmd {
-	return func() tea.Msg {
-		m.app.Network.MarkRead(context.Background(), m.item.MessageID)
-		return nil
-	}
+	return tea.Batch(
+		func() tea.Msg {
+			m.app.Network.MarkRead(context.Background(), m.item.MessageID)
+			return nil
+		},
+		func() tea.Msg {
+			contacts, err := m.app.Network.GetContacts(context.Background())
+			if err != nil {
+				return nil
+			}
+			return readLetterContactsMsg{contacts: contacts}
+		},
+	)
 }
 
 func (m ReadLetterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
+		case "a":
+			if !m.isContact && !m.addedContact {
+				return m, func() tea.Msg {
+					_, err := m.app.Network.AddContactByID(context.Background(), m.item.SenderID)
+					if err != nil {
+						return errMsg{err: err}
+					}
+					return contactAddedInReadMsg{}
+				}
+			}
 		case "r":
 			return m, func() tea.Msg {
 				return composeToMsg{
@@ -260,17 +288,28 @@ func (m ReadLetterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "b", "esc":
 			return m, func() tea.Msg { return backToInboxMsg{} }
 		}
+	case readLetterContactsMsg:
+		for _, c := range msg.contacts {
+			if c.UserID == m.item.SenderID {
+				m.isContact = true
+				break
+			}
+		}
+	case contactAddedInReadMsg:
+		m.isContact = true
+		m.addedContact = true
 	case tea.WindowSizeMsg:
 		m.viewport.Width = contentWidth()
 		m.viewport.Height = viewportHeight() - 1
 	case errMsg:
 		m.err = msg.err.Error()
-		m.viewport.SetContent("  " + errorStyle.Render(m.err))
 	}
 	var cmd tea.Cmd
 	m.viewport, cmd = m.viewport.Update(msg)
 	return m, cmd
 }
+
+type contactAddedInReadMsg struct{}
 
 func (m ReadLetterModel) View() string {
 	sentDate := m.item.SentAt.Format("Jan 2 3:04pm")
@@ -280,7 +319,14 @@ func (m ReadLetterModel) View() string {
 		selectedStyle.Render(m.item.SenderName), sentDate, arrDate)
 	header += "\n" + divider(contentWidth()) + "\n"
 
-	footer := "\n\n" + helpStyle.Render("[r] reply  [b] back")
+	help := ""
+	if m.addedContact {
+		help += successStyle.Render("contact added") + "  "
+	} else if !m.isContact {
+		help += "[a] add contact  "
+	}
+	help += "[r] reply  [b] back"
+	footer := "\n\n" + helpStyle.Render(help)
 	return screenBoxFixed().Render(header + m.viewport.View() + footer)
 }
 

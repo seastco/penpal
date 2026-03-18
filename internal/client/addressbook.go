@@ -145,6 +145,9 @@ func (m AddressBookModel) View() string {
 	title := titleStyle.Render("ADDRESS BOOK")
 	header := title + "\n" + divider(contentWidth()) + "\n"
 	header += fmt.Sprintf("\nyour address: %s\n\ncontacts:\n", selectedStyle.Render(m.app.Address()))
+	if m.loading {
+		return emptyScreenView(header, "", "[b] back")
+	}
 	if len(m.contacts) == 0 {
 		body := mutedStyle.Render("no contacts yet")
 		if m.err != "" {
