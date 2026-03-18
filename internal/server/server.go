@@ -23,7 +23,7 @@ type Config struct {
 // Server is the penpal relay server.
 type Server struct {
 	cfg        Config
-	db         *db.DB
+	db         db.Store
 	graph      *routing.Graph
 	hub        *Hub
 	limiter    *IPRateLimiter

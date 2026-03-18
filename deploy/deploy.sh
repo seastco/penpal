@@ -38,6 +38,17 @@ fi
 
 echo "==> Deploying Penpal ${VERSION}"
 
+# Pre-deploy DB backup
+echo "==> Pre-deploy database backup"
+BACKUP_FILE="${INSTALL_DIR}/backups/pre-deploy-${VERSION}-$(date +%Y%m%d%H%M%S).sql.gz"
+sudo -u penpal pg_dump penpal | gzip > "$BACKUP_FILE" || echo "WARNING: backup failed, continuing deploy"
+
+# Save previous binary for rollback
+if [ -f "${INSTALL_DIR}/penpal-server" ]; then
+    cp "${INSTALL_DIR}/penpal-server" "${INSTALL_DIR}/penpal-server.prev"
+    echo "==> Saved previous binary as penpal-server.prev"
+fi
+
 # Strip leading v for archive name
 VER_NUM="${VERSION#v}"
 ARCHIVE="penpal-server-linux-${ARCH}.tar.gz"
