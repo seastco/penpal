@@ -70,24 +70,7 @@ func pickNDistinct(pool []string, n int) []string {
 	return tmp[:n]
 }
 
-// knownCountryCodes maps ISO 3166-1 alpha-2 codes for supported international countries.
-var knownCountryCodes = map[string]bool{
-	"ES": true, // Spain
-}
 
-// homeStampType returns the stamp type for a user's home city, e.g. "state:ma" or "country:es".
-// Returns empty string if homeCity format is invalid.
-func homeStampType(homeCity string) string {
-	parts := strings.SplitN(homeCity, ", ", 2)
-	if len(parts) != 2 {
-		return ""
-	}
-	code := strings.TrimSpace(parts[1])
-	if knownCountryCodes[strings.ToUpper(code)] {
-		return "country:" + strings.ToLower(code)
-	}
-	return "state:" + strings.ToLower(code)
-}
 
 func (c *Client) Send(msgType string, payload any) {
 	select {
@@ -963,7 +946,7 @@ func (c *Client) handleGetShipping(ctx context.Context, env protocol.Envelope) e
 	var options []protocol.ShippingOption
 	for _, tier := range models.AllTiers() {
 		transitDays := routing.TransitDays(dist, tier, isIntl)
-		estDelivery := routing.EstimateDelivery(dist, string(tier), now, senderLoc)
+		estDelivery := routing.EstimateDelivery(dist, tier, now, senderLoc)
 		options = append(options, protocol.ShippingOption{
 			Tier:        string(tier),
 			Days:        transitDays,

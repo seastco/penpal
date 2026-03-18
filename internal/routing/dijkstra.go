@@ -24,7 +24,7 @@ var dijkstraPool = sync.Pool{
 // TransitDays returns the estimated delivery time in business days for a given distance and tier.
 // Used for shipping estimates (pre-send display).
 func TransitDays(dist float64, tier models.ShippingTier, international bool) float64 {
-	days := float64(EstimateBusinessDays(dist, string(tier)))
+	days := float64(EstimateBusinessDays(dist, tier))
 	if international {
 		days += tier.CustomsDays()
 	}

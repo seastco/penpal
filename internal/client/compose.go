@@ -544,10 +544,10 @@ func (m ComposeModel) sendLetter() tea.Cmd {
 			return errMsg{err: fmt.Errorf("encrypting letter: %w", err)}
 		}
 
-		tiers := []string{"first_class", "priority", "express"}
-		tier := tiers[0]
-		if m.shippingIdx >= 0 && m.shippingIdx < len(tiers) {
-			tier = tiers[m.shippingIdx]
+		allTiers := models.AllTiers()
+		tier := string(allTiers[0])
+		if m.shippingIdx >= 0 && m.shippingIdx < len(allTiers) {
+			tier = string(allTiers[m.shippingIdx])
 		}
 
 		var stampIDs []uuid.UUID
@@ -858,8 +858,7 @@ func (m ComposeModel) viewStamp() string {
 	title := titleStyle.Render(fmt.Sprintf("STAMPS (%d/%d)", selected, m.requiredStamps))
 	content := title + "\n" + divider(contentWidth()) + "\n"
 
-	tiers := []string{"first_class", "priority", "express"}
-	tierName := models.ShippingTier(tiers[m.shippingIdx]).DisplayName()
+	tierName := models.AllTiers()[m.shippingIdx].DisplayName()
 	content += fmt.Sprintf("to: %s · %s\n", selectedStyle.Render(m.recipientName), mutedStyle.Render(strings.ToLower(tierName)))
 
 	if len(m.stamps) == 0 {
