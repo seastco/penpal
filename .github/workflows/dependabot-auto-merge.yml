@@ -13,7 +13,17 @@ jobs:
     if: github.actor == 'dependabot[bot]'
     steps:
       - name: Auto-merge Dependabot PR
-        run: gh pr merge --auto --squash "$PR_URL"
+        run: |
+          for i in 1 2 3; do
+            if gh pr merge --auto --squash "$PR_URL"; then
+              echo "Auto-merge enabled"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
+          echo "Failed to enable auto-merge after 3 attempts"
+          exit 1
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,10 +1,9 @@
 name: CI
 
 on:
-  push:
-    branches: [master]
   pull_request:
     branches: [master]
+  workflow_call:
 
 jobs:
   unit:
@@ -57,7 +56,7 @@ jobs:
         run: go build -o ./bin/server ./cmd/server
 
       - name: Start server
-        run: ./bin/server &
+        run: ./bin/server > /tmp/server.log 2>&1 &
         env:
           PENPAL_DB: postgres://penpal:penpal@localhost:5432/penpal?sslmode=disable
           PENPAL_CITIES: data/graph_e2e.json
@@ -67,13 +66,18 @@ jobs:
         run: |
           for i in 1 2 3 4 5; do
             if curl -sf http://localhost:8282/v1/health; then
-              echo " server ready"
+              echo "server ready"
               exit 0
             fi
             sleep 2
           done
           echo "server failed to start"
+          cat /tmp/server.log
           exit 1
 
       - name: Run e2e tests
         run: go test ./internal/ -v -run TestEndToEnd -count=1 -timeout 120s
+
+      - name: Dump server logs on failure
+        if: failure()
+        run: cat /tmp/server.log
