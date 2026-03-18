@@ -10,8 +10,9 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
-	pencrypto "github.com/stove/penpal/internal/crypto"
-	"github.com/stove/penpal/internal/protocol"
+	pencrypto "github.com/seastco/penpal/internal/crypto"
+	"github.com/seastco/penpal/internal/models"
+	"github.com/seastco/penpal/internal/protocol"
 )
 
 // InboxModel shows delivered letters.
@@ -98,6 +99,9 @@ func (m InboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "r":
 			if len(m.items) > 0 {
 				item := m.items[m.cursor]
+				if item.SenderID == models.SystemUserID {
+					break
+				}
 				// Decrypt and cache the body so compose can show the original letter
 				if _, cached := m.app.DecryptedBodies[item.MessageID]; !cached {
 					if err := pencrypto.VerifyAndPinKey(item.SenderID.String(), item.SenderPubKey); err != nil {
@@ -201,7 +205,11 @@ func (m InboxModel) View() string {
 	}
 	m = m.syncViewport()
 	bh := adaptiveBoxHeight(len(m.items), 6)
-	footer := "\n\n" + helpStyle.Render("[enter] read  [r] reply  [b] back")
+	helpText := "[enter] read  [r] reply  [b] back"
+	if len(m.items) > 0 && m.items[m.cursor].SenderID == models.SystemUserID {
+		helpText = "[enter] read  [b] back"
+	}
+	footer := "\n\n" + helpStyle.Render(helpText)
 	return screenBox().Height(bh).Render(header + m.viewport.View() + footer)
 }
 
@@ -263,11 +271,12 @@ func (m ReadLetterModel) Init() tea.Cmd {
 }
 
 func (m ReadLetterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	isSystem := m.item.SenderID == models.SystemUserID
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "a":
-			if !m.isContact && !m.addedContact {
+			if !isSystem && !m.isContact && !m.addedContact {
 				return m, func() tea.Msg {
 					_, err := m.app.Network.AddContactByID(context.Background(), m.item.SenderID)
 					if err != nil {
@@ -277,6 +286,9 @@ func (m ReadLetterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "r":
+			if isSystem {
+				break
+			}
 			return m, func() tea.Msg {
 				return composeToMsg{
 					recipientID:    m.item.SenderID,
@@ -322,12 +334,16 @@ func (m ReadLetterModel) View() string {
 	header += "\n" + divider(contentWidth()) + "\n"
 
 	help := ""
-	if m.addedContact {
-		help += successStyle.Render("contact added") + "  "
-	} else if !m.isContact {
-		help += "[a] add contact  "
+	if m.item.SenderID == models.SystemUserID {
+		help = "[b] back"
+	} else {
+		if m.addedContact {
+			help += successStyle.Render("contact added") + "  "
+		} else if !m.isContact {
+			help += "[a] add contact  "
+		}
+		help += "[r] reply  [b] back"
 	}
-	help += "[r] reply  [b] back"
 	footer := "\n\n" + helpStyle.Render(help)
 	return screenBoxFixed().Render(header + m.viewport.View() + footer)
 }

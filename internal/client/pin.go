@@ -9,7 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	pencrypto "github.com/stove/penpal/internal/crypto"
+	pencrypto "github.com/seastco/penpal/internal/crypto"
 	"golang.org/x/crypto/bcrypt"
 )
 

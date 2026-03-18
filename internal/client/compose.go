@@ -13,9 +13,9 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
-	pencrypto "github.com/stove/penpal/internal/crypto"
-	"github.com/stove/penpal/internal/models"
-	"github.com/stove/penpal/internal/protocol"
+	pencrypto "github.com/seastco/penpal/internal/crypto"
+	"github.com/seastco/penpal/internal/models"
+	"github.com/seastco/penpal/internal/protocol"
 )
 
 // ComposeModel handles the letter composition flow.

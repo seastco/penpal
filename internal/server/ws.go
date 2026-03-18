@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/stove/penpal/internal/models"
-	"github.com/stove/penpal/internal/protocol"
-	"github.com/stove/penpal/internal/routing"
+	"github.com/seastco/penpal/internal/models"
+	"github.com/seastco/penpal/internal/protocol"
+	"github.com/seastco/penpal/internal/routing"
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
 )
@@ -288,6 +288,9 @@ func (c *Client) handleRegister(ctx context.Context, env protocol.Envelope) erro
 	if len(req.Username) < 1 || len(req.Username) > 32 {
 		return fmt.Errorf("username must be 1-32 characters")
 	}
+	if req.Username == "penpal" {
+		return fmt.Errorf("username 'penpal' is reserved")
+	}
 	if len(req.PublicKey) != ed25519.PublicKeySize {
 		return fmt.Errorf("invalid public key size")
 	}
@@ -320,6 +323,11 @@ func (c *Client) handleRegister(ctx context.Context, env protocol.Envelope) erro
 		}
 	}
 
+	// Send welcome letter from penpal#0000
+	if err := c.server.sendWelcomeLetter(ctx, user); err != nil {
+		log.Printf("warning: failed to send welcome letter to %s#%s: %v", user.Username, user.Discriminator, err)
+	}
+
 	c.userID = user.ID
 	c.server.hub.Register(c)
 
@@ -343,6 +351,9 @@ func (c *Client) handleAuth(ctx context.Context, env protocol.Envelope) error {
 	}
 	if user == nil {
 		return fmt.Errorf("user not found: %s#%s", req.Username, req.Discriminator)
+	}
+	if user.ID == SystemUserID {
+		return fmt.Errorf("cannot authenticate as system user")
 	}
 
 	// Generate nonce challenge
@@ -410,6 +421,9 @@ func (c *Client) handleRecover(ctx context.Context, env protocol.Envelope) error
 	if user == nil {
 		return fmt.Errorf("no account found for this recovery phrase")
 	}
+	if user.ID == SystemUserID {
+		return fmt.Errorf("cannot recover system user account")
+	}
 
 	c.userID = user.ID
 	c.server.hub.Register(c)
@@ -430,6 +444,9 @@ func (c *Client) handleSendLetter(ctx context.Context, env protocol.Envelope) er
 
 	if len(req.EncryptedBody) > 64*1024 {
 		return fmt.Errorf("message too large")
+	}
+	if req.RecipientID == SystemUserID {
+		return fmt.Errorf("cannot send letters to this user")
 	}
 	// Validate sender has recipient as contact
 	isContact, err := c.server.db.IsContact(ctx, c.userID, req.RecipientID)
@@ -770,6 +787,9 @@ func (c *Client) handleAddContact(ctx context.Context, env protocol.Envelope) er
 	}
 	if contact.ID == c.userID {
 		return fmt.Errorf("cannot add yourself as a contact")
+	}
+	if contact.ID == SystemUserID {
+		return fmt.Errorf("cannot add system user as a contact")
 	}
 
 	if err := c.server.db.AddContact(ctx, c.userID, contact.ID); err != nil {

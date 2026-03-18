@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/stove/penpal/internal/db"
-	"github.com/stove/penpal/internal/models"
+	"github.com/seastco/penpal/internal/db"
+	"github.com/seastco/penpal/internal/models"
 )
 
 // mockStore is an in-memory implementation of db.Store for testing.
@@ -169,6 +169,19 @@ func (m *mockStore) CreateMessage(_ context.Context, msg *models.Message, stampI
 	msg.Status = "in_transit"
 	m.messages[msg.ID] = msg
 	m.stampAttachments[msg.ID] = stampIDs
+	return nil
+}
+
+func (m *mockStore) CreateWelcomeMessage(_ context.Context, msg *models.Message) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	msg.ID = uuid.New()
+	msg.SentAt = time.Now()
+	msg.Status = "delivered"
+	now := time.Now()
+	msg.DeliveredAt = &now
+	m.messages[msg.ID] = msg
 	return nil
 }
 

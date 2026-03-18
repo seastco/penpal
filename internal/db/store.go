@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/stove/penpal/internal/models"
+	"github.com/seastco/penpal/internal/models"
 )
 
 // Store defines the interface for all database operations.
@@ -50,6 +50,9 @@ type Store interface {
 	HasReceivedFrom(ctx context.Context, userID, senderID uuid.UUID) (bool, error)
 	GetLastWeeklyStampTime(ctx context.Context, ownerID uuid.UUID) (time.Time, error)
 	GetUsersNeedingWeeklyStamp(ctx context.Context) ([]WeeklyStampUser, error)
+
+	// System messages
+	CreateWelcomeMessage(ctx context.Context, msg *models.Message) error
 
 	// Maintenance
 	ReapGhostAccounts(ctx context.Context, inactiveBefore time.Time) (int64, error)

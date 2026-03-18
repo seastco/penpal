@@ -15,7 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
-	pencrypto "github.com/stove/penpal/internal/crypto"
+	pencrypto "github.com/seastco/penpal/internal/crypto"
 )
 
 type RouteHop struct {

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/stove/penpal/internal/protocol"
+	"github.com/seastco/penpal/internal/protocol"
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
 )

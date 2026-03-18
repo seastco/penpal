@@ -5,7 +5,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	pencrypto "github.com/stove/penpal/internal/crypto"
+	pencrypto "github.com/seastco/penpal/internal/crypto"
 )
 
 // TUI is the root bubbletea model that orchestrates screen switching.

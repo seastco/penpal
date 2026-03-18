@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stove/penpal/internal/models"
+	"github.com/seastco/penpal/internal/models"
 )
 
 // testCities returns a small set of cities for testing.

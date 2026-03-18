@@ -8,7 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
-	"github.com/stove/penpal/internal/protocol"
+	"github.com/seastco/penpal/internal/protocol"
 )
 
 func testApp() *AppState {

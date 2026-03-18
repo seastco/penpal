@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/stove/penpal/internal/models"
-	"github.com/stove/penpal/internal/protocol"
-	"github.com/stove/penpal/internal/routing"
+	"github.com/seastco/penpal/internal/models"
+	"github.com/seastco/penpal/internal/protocol"
+	"github.com/seastco/penpal/internal/routing"
 )
 
 // testServer creates a Server with a mock store and a small test graph.
