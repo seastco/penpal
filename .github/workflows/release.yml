@@ -38,7 +38,7 @@ jobs:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
-          script: sudo bash /opt/penpal/deploy/deploy.sh ${{ github.ref_name }} --force-graph
+          script: sudo bash /opt/penpal/deploy/deploy.sh ${{ github.ref_name }}
 
       - name: Health check
         run: |
