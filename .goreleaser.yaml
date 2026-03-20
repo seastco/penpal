@@ -44,6 +44,7 @@ archives:
 release:
   extra_files:
     - glob: data/graph.json
+    - glob: data/international_cities.json
 
 changelog:
   sort: asc

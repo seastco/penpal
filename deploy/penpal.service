@@ -11,6 +11,7 @@ ExecStart=/opt/penpal/penpal-server
 Environment=PENPAL_LISTEN=:8282
 Environment=PENPAL_DB=postgres:///penpal?host=/var/run/postgresql&sslmode=disable
 Environment=PENPAL_CITIES=/opt/penpal/graph.json
+Environment=PENPAL_INTL_CITIES=/opt/penpal/international_cities.json
 Environment=PENPAL_TRUST_PROXY=true
 WorkingDirectory=/opt/penpal
 Restart=on-failure

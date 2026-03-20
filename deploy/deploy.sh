@@ -67,6 +67,14 @@ if [ ! -f "${INSTALL_DIR}/graph.json" ] || [ "$FORCE_GRAPH" = true ]; then
     chown penpal:penpal "${INSTALL_DIR}/graph.json"
 fi
 
+# Download international_cities.json if missing or forced
+if [ ! -f "${INSTALL_DIR}/international_cities.json" ] || [ "$FORCE_GRAPH" = true ]; then
+    echo "==> Downloading international_cities.json"
+    INTL_URL="https://github.com/${REPO}/releases/download/${VERSION}/international_cities.json"
+    curl -sfL -o "${INSTALL_DIR}/international_cities.json" "$INTL_URL" || echo "WARNING: international_cities.json not in release"
+    chown penpal:penpal "${INSTALL_DIR}/international_cities.json" 2>/dev/null
+fi
+
 # Stop service before overwriting binary (avoids "Text file busy" error)
 echo "==> Stopping penpal service"
 systemctl stop penpal
