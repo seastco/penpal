@@ -126,6 +126,8 @@ func TestStateFromCity(t *testing.T) {
 		{"Denver, CO", "state:co"},
 		{"New York, NY", "state:ny"},
 		{"Boston, MA", "state:ma"},
+		{"Madrid, ES", "country:es"},
+		{"Lisbon, PT", "country:pt"},
 		{"", ""},
 		{"NoCommaHere", ""},
 		{"City, ABC", ""}, // not 2-letter code

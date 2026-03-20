@@ -49,6 +49,7 @@ func main() {
 		ListenAddr: envOr("PENPAL_LISTEN", ":8282"),
 		DBConnStr:  envOr("PENPAL_DB", "postgres://localhost:5432/penpal?sslmode=disable"),
 		CityGraph:  envOr("PENPAL_CITIES", "data/graph.json"),
+		IntlCities: envOr("PENPAL_INTL_CITIES", "data/international_cities.json"),
 		TrustProxy: os.Getenv("PENPAL_TRUST_PROXY") == "true",
 	}
 

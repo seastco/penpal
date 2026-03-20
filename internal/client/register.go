@@ -41,6 +41,7 @@ type cityMatch struct {
 // countryNames maps country codes to display names for international cities.
 var countryNames = map[string]string{
 	"ES": "Spain",
+	"PT": "Portugal",
 }
 
 type registeredMsg struct {

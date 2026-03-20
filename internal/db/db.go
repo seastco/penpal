@@ -264,6 +264,26 @@ func (d *DB) IsContact(ctx context.Context, ownerID, contactID uuid.UUID) (bool,
 	return exists, err
 }
 
+// DeleteLetterForUser soft-deletes a message for the requesting user.
+// If the user is the sender, sets sender_deleted; if recipient, sets recipient_deleted.
+func (d *DB) DeleteLetterForUser(ctx context.Context, msgID, userID uuid.UUID) error {
+	result, err := d.pool.ExecContext(ctx,
+		`UPDATE messages
+		 SET sender_deleted = CASE WHEN sender_id = $2 THEN true ELSE sender_deleted END,
+		     recipient_deleted = CASE WHEN recipient_id = $2 THEN true ELSE recipient_deleted END
+		 WHERE id = $1 AND (sender_id = $2 OR recipient_id = $2)`,
+		msgID, userID,
+	)
+	if err != nil {
+		return err
+	}
+	n, _ := result.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("message not found or not yours")
+	}
+	return nil
+}
+
 // --- Message operations ---
 
 // CreateMessage stores a new encrypted message and returns it with the generated ID.
@@ -415,6 +435,7 @@ func (d *DB) GetInboxWithSenders(ctx context.Context, userID uuid.UUID, before *
 		 FROM messages m
 		 JOIN users u ON u.id = m.sender_id
 		 WHERE m.recipient_id = $1 AND m.status IN ('delivered', 'read')
+		   AND m.recipient_deleted = false
 		   AND ($2::TIMESTAMPTZ IS NULL OR m.delivered_at < $2)
 		 ORDER BY m.delivered_at DESC
 		 LIMIT $3`, userID, before, limit,
@@ -486,6 +507,7 @@ func (d *DB) GetSentWithRecipients(ctx context.Context, userID uuid.UUID, before
 		 FROM messages m
 		 JOIN users u ON u.id = m.recipient_id
 		 WHERE m.sender_id = $1
+		   AND m.sender_deleted = false
 		   AND ($2::TIMESTAMPTZ IS NULL OR m.sent_at < $2)
 		 ORDER BY m.sent_at DESC
 		 LIMIT $3`, userID, before, limit,

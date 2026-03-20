@@ -191,6 +191,8 @@ func (g *Graph) SearchCities(query string, limit int) []City {
 		full := strings.ToLower(c.FullName())
 		if lower == query || full == query {
 			matches = append(matches, match{c, 0})
+		} else if strings.HasPrefix(full, query) {
+			matches = append(matches, match{c, 1})
 		} else if strings.HasPrefix(lower, query) {
 			matches = append(matches, match{c, 1})
 		} else if strings.Contains(full, query) {
@@ -274,6 +276,48 @@ func (g *Graph) SavePrecomputed(path string) error {
 	return os.WriteFile(path, data, 0644)
 }
 
+// AddCities merges new cities into the graph, connecting each to its K nearest
+// existing neighbors. Cities already present (by exact coordinate match) are skipped.
+func (g *Graph) AddCities(cities []City) int {
+	added := 0
+	for _, c := range cities {
+		if _, exists := g.coordIdx[[2]float64{c.Lat, c.Lng}]; exists {
+			continue
+		}
+		idx := len(g.Cities)
+		g.Cities = append(g.Cities, c)
+		g.Adjacency = append(g.Adjacency, nil)
+
+		// Connect new city to its K nearest existing neighbors
+		edges := g.nearestNeighbors(idx, neighborsK)
+		g.Adjacency[idx] = edges
+
+		// Make edges bidirectional
+		for _, e := range edges {
+			if !g.hasEdge(e.To, idx) {
+				g.Adjacency[e.To] = append(g.Adjacency[e.To], Edge{To: idx, Distance: e.Distance})
+			}
+		}
+
+		g.coordIdx[[2]float64{c.Lat, c.Lng}] = idx
+		added++
+	}
+	return added
+}
+
+// LoadInternationalCities reads a JSON file of international cities.
+func LoadInternationalCities(path string) ([]City, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var cities []City
+	if err := json.Unmarshal(data, &cities); err != nil {
+		return nil, err
+	}
+	return cities, nil
+}
+
 // AirBridge defines a synthetic edge between two gateway cities (e.g., across oceans).
 type AirBridge struct {
 	From string // "City, ST" or "City, CC"
@@ -285,6 +329,8 @@ var DefaultAirBridges = []AirBridge{
 	{"Honolulu, HI", "Los Angeles, CA"},
 	{"Anchorage, AK", "Seattle, WA"},
 	{"New York, NY", "Madrid, ES"},
+	{"New York, NY", "Lisbon, PT"},
+	{"Madrid, ES", "Lisbon, PT"},
 }
 
 // AddAirBridges injects synthetic bidirectional edges between gateway city pairs.

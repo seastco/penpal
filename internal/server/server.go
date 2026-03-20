@@ -18,6 +18,7 @@ type Config struct {
 	ListenAddr string
 	DBConnStr  string
 	CityGraph  string // path to precomputed city graph
+	IntlCities string // path to international cities JSON (optional)
 	TrustProxy bool   // trust X-Forwarded-For for client IP
 }
 
@@ -47,6 +48,19 @@ func New(cfg Config) (*Server, error) {
 	if len(graph.Cities) == 0 {
 		return nil, fmt.Errorf("city graph is empty — check %s", cfg.CityGraph)
 	}
+
+	// Merge international cities if file exists
+	if cfg.IntlCities != "" {
+		intlCities, err := routing.LoadInternationalCities(cfg.IntlCities)
+		if err != nil {
+			log.Printf("warning: could not load international cities from %s: %v", cfg.IntlCities, err)
+		} else if added := graph.AddCities(intlCities); added > 0 {
+			log.Printf("added %d international cities to graph", added)
+		}
+	}
+
+	// Ensure air bridges exist (idempotent — skips existing edges)
+	graph.AddAirBridges(routing.DefaultAirBridges)
 
 	// Initialize system keypair for welcome letters
 	if mnemonic := os.Getenv("PENPAL_SYSTEM_MNEMONIC"); mnemonic != "" {

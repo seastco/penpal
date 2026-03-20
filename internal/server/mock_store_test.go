@@ -237,6 +237,16 @@ func (m *mockStore) GetMessage(_ context.Context, msgID uuid.UUID) (*models.Mess
 	return nil, nil
 }
 
+func (m *mockStore) DeleteLetterForUser(_ context.Context, msgID, userID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, ok := m.messages[msgID]; ok {
+		delete(m.messages, msgID)
+	}
+	return nil
+}
+
 func (m *mockStore) MarkRead(_ context.Context, msgID uuid.UUID) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

@@ -115,6 +115,12 @@ func (m PinEntryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if s == "ctrl+c" {
 			return m, tea.Quit
 		}
+		if s == "backspace" {
+			if len(m.digits) > 0 {
+				m.digits = m.digits[:len(m.digits)-1]
+			}
+			return m, nil
+		}
 		if len(s) == 1 && s[0] >= '0' && s[0] <= '9' {
 			m.digits = append(m.digits, rune(s[0]))
 			if len(m.digits) == 4 {
@@ -214,6 +220,10 @@ func (m PinSetupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case s == "enter" && len(m.digits) == 0 && m.phase == 1 && !m.hasPin:
 			// Skip PIN setup (only for new users without a PIN)
 			return m, func() tea.Msg { return switchScreenMsg{screen: m.origin} }
+		case s == "backspace":
+			if len(m.digits) > 0 {
+				m.digits = m.digits[:len(m.digits)-1]
+			}
 		case len(s) == 1 && s[0] >= '0' && s[0] <= '9':
 			m.digits = append(m.digits, rune(s[0]))
 			m.err = ""

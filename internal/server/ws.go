@@ -57,16 +57,34 @@ func pickNDistinct(pool []string, n int) []string {
 	return tmp[:n]
 }
 
-// stateFromCity extracts a "state:xx" stamp type from a "City, ST" string.
+// knownUSStates is the set of valid US state/territory codes for stamp classification.
+var knownUSStates = map[string]bool{
+	"AL": true, "AK": true, "AZ": true, "AR": true, "CA": true, "CO": true,
+	"CT": true, "DE": true, "FL": true, "GA": true, "HI": true, "ID": true,
+	"IL": true, "IN": true, "IA": true, "KS": true, "KY": true, "LA": true,
+	"ME": true, "MD": true, "MA": true, "MI": true, "MN": true, "MS": true,
+	"MO": true, "MT": true, "NE": true, "NV": true, "NH": true, "NJ": true,
+	"NM": true, "NY": true, "NC": true, "ND": true, "OH": true, "OK": true,
+	"OR": true, "PA": true, "RI": true, "SC": true, "SD": true, "TN": true,
+	"TX": true, "UT": true, "VT": true, "VA": true, "WA": true, "WV": true,
+	"WI": true, "WY": true, "DC": true,
+}
+
+// stateFromCity extracts a "state:xx" or "country:xx" stamp type from a "City, ST" string.
 func stateFromCity(homeCity string) string {
 	parts := strings.SplitN(homeCity, ", ", 2)
-	if len(parts) == 2 {
-		code := strings.ToLower(strings.TrimSpace(parts[1]))
-		if len(code) == 2 {
-			return "state:" + code
-		}
+	if len(parts) != 2 {
+		return ""
 	}
-	return ""
+	code := strings.TrimSpace(parts[1])
+	if len(code) != 2 {
+		return ""
+	}
+	upper := strings.ToUpper(code)
+	if knownUSStates[upper] {
+		return "state:" + strings.ToLower(code)
+	}
+	return "country:" + strings.ToLower(code)
 }
 
 func (c *Client) Send(msgType string, payload any) {
@@ -252,6 +270,8 @@ func (c *Client) handleMessage(ctx context.Context, env protocol.Envelope) error
 		return c.requireAuth(func() error { return c.handleGetContacts(ctx, env) })
 	case protocol.MsgDeleteContact:
 		return c.requireAuth(func() error { return c.handleDeleteContact(ctx, env) })
+	case protocol.MsgDeleteLetter:
+		return c.requireAuth(func() error { return c.handleDeleteLetter(ctx, env) })
 	case protocol.MsgBlockUser:
 		return c.requireAuth(func() error { return c.handleBlockUser(ctx, env) })
 	case protocol.MsgGetStamps:
@@ -832,6 +852,19 @@ func (c *Client) handleDeleteContact(ctx context.Context, env protocol.Envelope)
 		return fmt.Errorf("deleting contact: %w", err)
 	}
 	c.sendResponse(env.ReqID, protocol.MsgDeleteContactOK, nil)
+	return nil
+}
+
+func (c *Client) handleDeleteLetter(ctx context.Context, env protocol.Envelope) error {
+	data, _ := json.Marshal(env.Payload)
+	var req protocol.DeleteLetterRequest
+	if err := json.Unmarshal(data, &req); err != nil {
+		return fmt.Errorf("invalid delete letter request: %w", err)
+	}
+	if err := c.server.db.DeleteLetterForUser(ctx, req.MessageID, c.userID); err != nil {
+		return fmt.Errorf("deleting letter: %w", err)
+	}
+	c.sendResponse(env.ReqID, protocol.MsgDeleteLetterOK, nil)
 	return nil
 }
 

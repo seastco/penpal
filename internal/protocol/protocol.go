@@ -25,6 +25,8 @@ const (
 	MsgGetContacts     MessageType = "get_contacts"
 	MsgDeleteContact   MessageType = "delete_contact"
 	MsgDeleteContactOK MessageType = "delete_contact_ok"
+	MsgDeleteLetter    MessageType = "delete_letter"
+	MsgDeleteLetterOK  MessageType = "delete_letter_ok"
 	MsgBlockUser       MessageType = "block_user"
 	MsgGetStamps       MessageType = "get_stamps"
 	MsgGetMessage      MessageType = "get_message"
@@ -100,6 +102,10 @@ type AddContactRequest struct {
 
 type DeleteContactRequest struct {
 	ContactID uuid.UUID `json:"contact_id"`
+}
+
+type DeleteLetterRequest struct {
+	MessageID uuid.UUID `json:"message_id"`
 }
 
 type BlockUserRequest struct {

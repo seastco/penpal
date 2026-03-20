@@ -64,8 +64,6 @@ func (m TrackingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "r":
-			return m, m.loadTracking()
 		case "b", "esc":
 			return m, func() tea.Msg { return switchScreenMsg{screen: m.origin} }
 		}
@@ -121,7 +119,7 @@ func (m TrackingModel) View() string {
 				m.tracking.ShippingTier, m.tracking.Distance)))
 	}
 
-	content += "\n" + helpStyle.Render("[r] refresh  [b] back")
+	content += "\n" + helpStyle.Render("[b] back")
 	return screenBox().Render(content)
 }
 
@@ -309,14 +307,15 @@ type trackLetterMsg struct {
 
 // SentModel shows sent letters.
 type SentModel struct {
-	app         *AppState
-	items       []protocol.SentItem
-	cursor      int
-	viewport    viewport.Model
-	loading     bool
-	loadingMore bool
-	hasMore     bool
-	err         string
+	app           *AppState
+	items         []protocol.SentItem
+	cursor        int
+	viewport      viewport.Model
+	loading       bool
+	loadingMore   bool
+	hasMore       bool
+	confirmDelete bool
+	err           string
 }
 
 func NewSentModel(app *AppState) SentModel {
@@ -359,6 +358,30 @@ func (m SentModel) maybePrefetch() tea.Cmd {
 func (m SentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if m.confirmDelete {
+			if msg.String() == "y" && m.cursor < len(m.items) {
+				item := m.items[m.cursor]
+				m.confirmDelete = false
+				return m, func() tea.Msg {
+					ctx := context.Background()
+					_, err := m.app.Network.Send(ctx, protocol.MsgDeleteLetter, protocol.DeleteLetterRequest{
+						MessageID: item.MessageID,
+					})
+					if err != nil {
+						return errMsg{err: err}
+					}
+					resp, err := m.app.Network.GetSent(ctx, nil)
+					if err != nil {
+						return errMsg{err: err}
+					}
+					return sentLoadedMsg{items: resp.Letters, hasMore: resp.HasMore}
+				}
+			} else {
+				m.confirmDelete = false
+			}
+			m = m.syncViewport()
+			return m, nil
+		}
 		switch msg.String() {
 		case "up", "k":
 			if m.cursor > 0 {
@@ -370,6 +393,10 @@ func (m SentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m = m.syncViewport()
 			return m, m.maybePrefetch()
+		case "d":
+			if len(m.items) > 0 {
+				m.confirmDelete = true
+			}
 		case "enter":
 			if len(m.items) > 0 {
 				item := m.items[m.cursor]
@@ -389,6 +416,9 @@ func (m SentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.items = msg.items
 			m.loading = false
+		}
+		if m.cursor >= len(m.items) && m.cursor > 0 {
+			m.cursor = len(m.items) - 1
 		}
 		m.hasMore = msg.hasMore
 	case errMsg:
@@ -459,6 +489,12 @@ func (m SentModel) View() string {
 	}
 	m = m.syncViewport()
 	bh := adaptiveBoxHeight(len(m.items), 6)
-	footer := "\n\n" + helpStyle.Render("[enter] view  [b] back")
+	var footer string
+	if m.confirmDelete && m.cursor < len(m.items) {
+		name := m.items[m.cursor].RecipientName
+		footer = "\n\n" + errorStyle.Render(fmt.Sprintf("delete letter to %s? [y] yes  [n] no", name))
+	} else {
+		footer = "\n\n" + helpStyle.Render("[enter] view  [d] delete  [b] back")
+	}
 	return screenBox().Height(bh).Render(header + m.viewport.View() + footer)
 }

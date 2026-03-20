@@ -31,10 +31,12 @@ var stateEmoji = map[string]string{
 
 var countryEmoji = map[string]string{
 	"ES": "🇪🇸",
+	"PT": "🇵🇹",
 }
 
 var countryStampNames = map[string]string{
 	"ES": "Spain",
+	"PT": "Portugal",
 }
 
 var stampEmoji = map[string]string{

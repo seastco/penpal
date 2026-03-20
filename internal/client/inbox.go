@@ -17,14 +17,15 @@ import (
 
 // InboxModel shows delivered letters.
 type InboxModel struct {
-	app         *AppState
-	items       []protocol.InboxItem
-	cursor      int
-	viewport    viewport.Model
-	loading     bool
-	loadingMore bool
-	hasMore     bool
-	err         string
+	app           *AppState
+	items         []protocol.InboxItem
+	cursor        int
+	viewport      viewport.Model
+	loading       bool
+	loadingMore   bool
+	hasMore       bool
+	confirmDelete bool
+	err           string
 }
 
 func NewInboxModel(app *AppState) InboxModel {
@@ -67,6 +68,31 @@ func (m InboxModel) maybePrefetch() tea.Cmd {
 func (m InboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if m.confirmDelete {
+			if msg.String() == "y" && m.cursor < len(m.items) {
+				item := m.items[m.cursor]
+				m.confirmDelete = false
+				return m, func() tea.Msg {
+					ctx := context.Background()
+					_, err := m.app.Network.Send(ctx, protocol.MsgDeleteLetter, protocol.DeleteLetterRequest{
+						MessageID: item.MessageID,
+					})
+					if err != nil {
+						return errMsg{err: err}
+					}
+					// Refetch inbox
+					resp, err := m.app.Network.GetInbox(ctx, nil)
+					if err != nil {
+						return errMsg{err: err}
+					}
+					return inboxLoadedMsg{items: resp.Letters, hasMore: resp.HasMore}
+				}
+			} else {
+				m.confirmDelete = false
+			}
+			m = m.syncViewport()
+			return m, nil
+		}
 		switch msg.String() {
 		case "up", "k":
 			if m.cursor > 0 {
@@ -78,6 +104,10 @@ func (m InboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m = m.syncViewport()
 			return m, m.maybePrefetch()
+		case "d":
+			if len(m.items) > 0 {
+				m.confirmDelete = true
+			}
 		case "enter":
 			if len(m.items) > 0 {
 				item := m.items[m.cursor]
@@ -135,6 +165,9 @@ func (m InboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.loading = false
 		}
 		m.hasMore = msg.hasMore
+		if m.cursor >= len(m.items) && m.cursor > 0 {
+			m.cursor = len(m.items) - 1
+		}
 	case errMsg:
 		m.err = msg.err.Error()
 		m.loading = false
@@ -205,11 +238,17 @@ func (m InboxModel) View() string {
 	}
 	m = m.syncViewport()
 	bh := adaptiveBoxHeight(len(m.items), 6)
-	helpText := "[enter] read  [r] reply  [b] back"
-	if len(m.items) > 0 && m.items[m.cursor].SenderID == models.SystemUserID {
-		helpText = "[enter] read  [b] back"
+	var footer string
+	if m.confirmDelete && m.cursor < len(m.items) {
+		name := m.items[m.cursor].SenderName
+		footer = "\n\n" + errorStyle.Render(fmt.Sprintf("delete letter from %s? [y] yes  [n] no", name))
+	} else {
+		helpText := "[enter] read  [r] reply  [d] delete  [b] back"
+		if len(m.items) > 0 && m.items[m.cursor].SenderID == models.SystemUserID {
+			helpText = "[enter] read  [d] delete  [b] back"
+		}
+		footer = "\n\n" + helpStyle.Render(helpText)
 	}
-	footer := "\n\n" + helpStyle.Render(helpText)
 	return screenBox().Height(bh).Render(header + m.viewport.View() + footer)
 }
 

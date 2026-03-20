@@ -1,3 +1,16 @@
 [
-  {"name": "Madrid", "state": "", "country": "ES", "lat": 40.4168, "lng": -3.7038, "population": 3223334}
+  {"name": "Madrid", "state": "", "country": "ES", "lat": 40.4168, "lng": -3.7038, "population": 3223334},
+  {"name": "Barcelona", "state": "", "country": "ES", "lat": 41.3851, "lng": 2.1734, "population": 1620343},
+  {"name": "Valencia", "state": "", "country": "ES", "lat": 39.4699, "lng": -0.3763, "population": 791413},
+  {"name": "Seville", "state": "", "country": "ES", "lat": 37.3891, "lng": -5.9845, "population": 688711},
+  {"name": "Zaragoza", "state": "", "country": "ES", "lat": 41.6488, "lng": -0.8891, "population": 666880},
+  {"name": "Malaga", "state": "", "country": "ES", "lat": 36.7213, "lng": -4.4214, "population": 571026},
+  {"name": "Bilbao", "state": "", "country": "ES", "lat": 43.2630, "lng": -2.9350, "population": 346843},
+  {"name": "Murcia", "state": "", "country": "ES", "lat": 37.9922, "lng": -1.1307, "population": 453258},
+  {"name": "Palma", "state": "", "country": "ES", "lat": 39.5696, "lng": 2.6502, "population": 416065},
+  {"name": "Lisbon", "state": "", "country": "PT", "lat": 38.7223, "lng": -9.1393, "population": 504718},
+  {"name": "Porto", "state": "", "country": "PT", "lat": 41.1579, "lng": -8.6291, "population": 249633},
+  {"name": "Braga", "state": "", "country": "PT", "lat": 41.5518, "lng": -8.4229, "population": 193333},
+  {"name": "Coimbra", "state": "", "country": "PT", "lat": 40.2033, "lng": -8.4103, "population": 143396},
+  {"name": "Faro", "state": "", "country": "PT", "lat": 37.0194, "lng": -7.9322, "population": 64560}
 ]

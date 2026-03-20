@@ -53,7 +53,7 @@ func (g *Graph) Route(fromIdx, toIdx int, tier models.ShippingTier, departureTim
 		dwell := SampleDwellHours(tier.DwellMeanHours(), tier.DwellSigma(), rng)
 		ready := AddFacilityHours(departure, dwell, senderLoc, express)
 		eta := NextDeliverySlot(ready, senderLoc, express, rng)
-		hop := g.makeHop(fromIdx, eta)
+		hop := g.makeHop(fromIdx, eta.UTC())
 		return []models.RouteHop{hop}, 0, nil
 	}
 
@@ -270,6 +270,11 @@ func (g *Graph) scheduleHops(path []int, tier models.ShippingTier, departureTime
 	// Final hop: snap to delivery window
 	destLoc := g.Cities[path[len(path)-1]].Timezone()
 	hops[len(path)-1].ETA = NextDeliverySlot(cursor, destLoc, express, rng)
+
+	// Normalize all ETAs to UTC for consistent display across timezones
+	for i := range hops {
+		hops[i].ETA = hops[i].ETA.UTC()
+	}
 
 	return hops
 }

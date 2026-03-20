@@ -38,6 +38,7 @@ type Store interface {
 	GetOutgoingInTransitWithUsers(ctx context.Context, userID uuid.UUID) ([]InTransitRow, error)
 	GetMessage(ctx context.Context, msgID uuid.UUID) (*models.Message, error)
 	MarkRead(ctx context.Context, msgID uuid.UUID) error
+	DeleteLetterForUser(ctx context.Context, msgID, userID uuid.UUID) error
 
 	// Rate limiting and blocking
 	CheckRateLimit(ctx context.Context, senderID, recipientID uuid.UUID) (bool, error)
