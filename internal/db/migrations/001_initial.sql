@@ -41,9 +41,7 @@ CREATE TABLE messages (
     delivered_at    TIMESTAMPTZ,
     read_at         TIMESTAMPTZ,
     status          TEXT NOT NULL DEFAULT 'in_transit'
-                    CHECK (status IN ('in_transit', 'delivered', 'read')),
-    sender_deleted    BOOLEAN NOT NULL DEFAULT false,
-    recipient_deleted BOOLEAN NOT NULL DEFAULT false
+                    CHECK (status IN ('in_transit', 'delivered', 'read'))
 );
 
 CREATE INDEX idx_messages_recipient_status ON messages(recipient_id, status);
