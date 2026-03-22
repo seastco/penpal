@@ -516,11 +516,13 @@ func TestSent_TrackKey(t *testing.T) {
 
 func TestReadLetter_ReplyKey(t *testing.T) {
 	senderID := uuid.New()
+	now := time.Now()
 	item := protocol.InboxItem{
 		SenderID:    senderID,
 		SenderName:  "alice",
-		DeliveredAt: time.Now(),
-		SentAt:      time.Now(),
+		DeliveredAt: now,
+		SentAt:      now,
+		ReadAt:      &now,
 	}
 	m := NewReadLetterModel(testApp(), item, "test body")
 
@@ -539,15 +541,49 @@ func TestReadLetter_ReplyKey(t *testing.T) {
 }
 
 func TestReadLetter_DecryptedView(t *testing.T) {
+	now := time.Now()
 	item := protocol.InboxItem{
 		SenderName:  "alice",
-		DeliveredAt: time.Now(),
-		SentAt:      time.Now(),
+		DeliveredAt: now,
+		SentAt:      now,
+		ReadAt:      &now,
 	}
 	m := NewReadLetterModel(testApp(), item, "Hello from Boston!")
 	view := m.View()
 	if !strings.Contains(view, "Hello from Boston!") {
 		t.Error("view should show decrypted body")
+	}
+}
+
+func TestReadLetter_TypewriterOnNew(t *testing.T) {
+	item := protocol.InboxItem{
+		SenderName:  "alice",
+		DeliveredAt: time.Now(),
+		SentAt:      time.Now(),
+	}
+	m := NewReadLetterModel(testApp(), item, "Hello!")
+
+	// New letter should start in typing mode with no body visible
+	if !m.typing {
+		t.Fatal("expected typing mode for unread letter")
+	}
+	view := m.View()
+	if strings.Contains(view, "Hello!") {
+		t.Error("body should not be fully visible during typewriter")
+	}
+	if !strings.Contains(view, "press any key to skip") {
+		t.Error("should show skip hint during typewriter")
+	}
+
+	// Any key skips the animation
+	updated, _ := m.Update(keyMsg(" "))
+	rm := updated.(ReadLetterModel)
+	if rm.typing {
+		t.Error("key press should skip typewriter")
+	}
+	view = rm.View()
+	if !strings.Contains(view, "Hello!") {
+		t.Error("body should be fully visible after skip")
 	}
 }
 
