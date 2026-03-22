@@ -279,13 +279,7 @@ type ReadLetterModel struct {
 
 func NewReadLetterModel(app *AppState, item protocol.InboxItem, body string) ReadLetterModel {
 	vp := viewport.New(contentWidth(), viewportHeight()-1)
-	rendered := body
-	if app.GlamourRenderer != nil {
-		if r, err := app.GlamourRenderer.Render(body); err == nil {
-			rendered = r
-		}
-	}
-	vp.SetContent(rendered)
+	vp.SetContent("\n" + body)
 	return ReadLetterModel{app: app, item: item, body: body, viewport: vp, isContact: true}
 }
 
