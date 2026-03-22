@@ -79,45 +79,49 @@ func (m TrackingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m TrackingModel) View() string {
 	title := titleStyle.Render(fmt.Sprintf("TRACKING %s", m.label))
-	content := title + "\n" + divider(contentWidth()) + "\n"
+	header := title + "\n" + divider(contentWidth()) + "\n"
 
 	if m.loading {
-		content += "\n" + mutedStyle.Render("loading...") + "\n"
-	} else if m.err != "" {
-		content += "\n" + errorStyle.Render(m.err) + "\n"
-	} else if m.tracking != nil {
-		now := time.Now()
-		total := len(m.tracking.Route)
-
-		// Delivery status
-		if total > 0 {
-			lastHop := m.tracking.Route[total-1]
-			if time.Until(lastHop.ETA) <= 0 {
-				content += "\n" + successStyle.Render("Delivered!") + "\n"
-			}
-		}
-
-		content += "\n"
-		// Hop timeline
-		for _, hop := range m.tracking.Route {
-			var timeStr string
-			node := mutedStyle.Render("○")
-			if now.After(hop.ETA) && isCurrentHop(m.tracking.Route, hop, now) {
-				node = selectedStyle.Render("◉")
-				timeStr = hop.ETA.Format("01/02  15:04")
-			} else if now.After(hop.ETA) {
-				node = successStyle.Render("●")
-				timeStr = hop.ETA.Format("01/02  15:04")
-			} else {
-				timeStr = hop.ETA.Format("01/02 ~15:04")
-			}
-			content += fmt.Sprintf("%s %s  %s\n", node, mutedStyle.Render(timeStr), hop.City)
-		}
-
-		content += fmt.Sprintf("\n%s\n",
-			mutedStyle.Render(fmt.Sprintf("%s · %.0f mi",
-				m.tracking.ShippingTier, m.tracking.Distance)))
+		return emptyScreenView(header, "", "[b] back")
 	}
+	if m.err != "" {
+		return emptyScreenView(header, "\n"+errorStyle.Render(m.err), "[b] back")
+	}
+	if m.tracking == nil {
+		return emptyScreenView(header, "", "[b] back")
+	}
+
+	content := header
+	now := time.Now()
+	total := len(m.tracking.Route)
+
+	// Delivery status
+	if total > 0 {
+		lastHop := m.tracking.Route[total-1]
+		if time.Until(lastHop.ETA) <= 0 {
+			content += "\n" + successStyle.Render("Delivered!") + "\n"
+		}
+	}
+
+	content += "\n"
+	for _, hop := range m.tracking.Route {
+		var timeStr string
+		node := mutedStyle.Render("○")
+		if now.After(hop.ETA) && isCurrentHop(m.tracking.Route, hop, now) {
+			node = selectedStyle.Render("◉")
+			timeStr = hop.ETA.Format("01/02  15:04")
+		} else if now.After(hop.ETA) {
+			node = successStyle.Render("●")
+			timeStr = hop.ETA.Format("01/02  15:04")
+		} else {
+			timeStr = hop.ETA.Format("01/02 ~15:04")
+		}
+		content += fmt.Sprintf("%s %s  %s\n", node, mutedStyle.Render(timeStr), hop.City)
+	}
+
+	content += fmt.Sprintf("\n%s\n",
+		mutedStyle.Render(fmt.Sprintf("%s · %.0f mi",
+			m.tracking.ShippingTier, m.tracking.Distance)))
 
 	content += "\n" + helpStyle.Render("[b] back")
 	return screenBox().Render(content)
@@ -126,12 +130,7 @@ func (m TrackingModel) View() string {
 func isCurrentHop(route []models.RouteHop, hop models.RouteHop, now time.Time) bool {
 	for i, h := range route {
 		if h.ETA == hop.ETA {
-			// Check if next hop is in the future
 			if i+1 < len(route) && now.Before(route[i+1].ETA) {
-				return true
-			}
-			// Or this is the last hop
-			if i == len(route)-1 {
 				return true
 			}
 		}
