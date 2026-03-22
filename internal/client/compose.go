@@ -103,13 +103,7 @@ func NewComposeModelTo(app *AppState, recipientID uuid.UUID, recipientName strin
 		if !ok {
 			body = "(original letter unavailable)"
 		}
-		rendered := body
-		if app.GlamourRenderer != nil {
-			if r, err := app.GlamourRenderer.Render(body); err == nil {
-				rendered = r
-			}
-		}
-		vp.SetContent(rendered)
+		vp.SetContent(body)
 		m.originalViewport = vp
 	}
 

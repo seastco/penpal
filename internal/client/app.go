@@ -3,7 +3,6 @@ package client
 import (
 	"crypto/ed25519"
 
-	"github.com/charmbracelet/glamour"
 	"github.com/google/uuid"
 	"github.com/seastco/penpal/internal/models"
 	"github.com/seastco/penpal/internal/protocol"
@@ -30,7 +29,6 @@ type AppState struct {
 	Stamps    []models.Stamp
 
 	// Rendering
-	GlamourRenderer *glamour.TermRenderer
 	DecryptedBodies map[uuid.UUID]string
 
 	// Server URL

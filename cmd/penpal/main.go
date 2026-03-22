@@ -17,7 +17,6 @@ import (
 	_ "time/tzdata" // embed timezone database for systems without it
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/glamour"
 	"github.com/google/uuid"
 	"github.com/seastco/penpal/internal/client"
 	pencrypto "github.com/seastco/penpal/internal/crypto"
@@ -104,16 +103,6 @@ func main() {
 		}
 	}
 
-	// Create glamour renderer BEFORE bubbletea starts reading stdin.
-	// glamour.WithAutoStyle() queries the terminal for background color via
-	// OSC escape sequences. Once bubbletea's input goroutine is running, it
-	// races for the terminal response and can cause 5-second timeouts.
-	//
-	renderer, _ := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
-		glamour.WithWordWrap(60),
-	)
-	app.GlamourRenderer = renderer
 	app.DecryptedBodies = make(map[uuid.UUID]string)
 
 	// Run TUI

@@ -667,13 +667,18 @@ func (c *Client) handleGetSent(ctx context.Context, env protocol.Envelope) error
 
 	items := make([]protocol.SentItem, len(rows))
 	for i, r := range rows {
+		// Don't reveal read status to the sender — cap at "delivered"
+		status := string(r.Status)
+		if status == "read" {
+			status = "delivered"
+		}
 		items[i] = protocol.SentItem{
 			MessageID:     r.ID,
 			RecipientName: r.RecipientName,
 			RecipientID:   r.RecipientID,
 			SentAt:        r.SentAt,
 			ShippingTier:  string(r.ShippingTier),
-			Status:        string(r.Status),
+			Status:        status,
 			Route:         r.Route,
 		}
 	}
@@ -744,12 +749,18 @@ func (c *Client) handleGetTracking(ctx context.Context, env protocol.Envelope) e
 		return fmt.Errorf("not your message")
 	}
 
+	// Don't reveal read status to the sender — cap at "delivered"
+	status := string(msg.Status)
+	if status == "read" && c.userID == msg.SenderID {
+		status = "delivered"
+	}
+
 	distance := routing.TotalDistance(msg.Route)
 	c.sendResponse(env.ReqID, protocol.MsgTracking, protocol.TrackingResponse{
 		MessageID:    msg.ID,
 		Route:        msg.Route,
 		ShippingTier: string(msg.ShippingTier),
-		Status:       string(msg.Status),
+		Status:       status,
 		Distance:     distance,
 	})
 	return nil

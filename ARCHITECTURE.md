@@ -72,7 +72,7 @@ All message types and their payloads are defined in `internal/protocol/protocol.
 
 6. **Delivery.** A server loop runs every 30 seconds, querying for messages where `release_at <= now()` and `status = 'in_transit'`. Matching messages are flipped to `status = 'delivered'` and a push notification is sent to the recipient if they're connected.
 
-7. **Read.** The recipient opens the letter. The client decrypts the body using their private key and the sender's public key. The server is notified via `mark_read`.
+7. **Read.** The recipient opens the letter. The client decrypts the body using their private key and the sender's public key. The server is notified via `mark_read`, but read status is never exposed to the sender — senders only see "delivered".
 
 ## City Routing
 
