@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
 	pencrypto "github.com/seastco/penpal/internal/crypto"
 	"github.com/seastco/penpal/internal/models"
@@ -103,7 +104,7 @@ func NewComposeModelTo(app *AppState, recipientID uuid.UUID, recipientName strin
 		if !ok {
 			body = "(original letter unavailable)"
 		}
-		vp.SetContent(body)
+		vp.SetContent(lipgloss.NewStyle().Width(contentWidth()).Render(body))
 		m.originalViewport = vp
 	}
 

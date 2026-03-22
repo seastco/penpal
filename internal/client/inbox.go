@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
 	pencrypto "github.com/seastco/penpal/internal/crypto"
 	"github.com/seastco/penpal/internal/models"
@@ -266,6 +267,25 @@ type composeToMsg struct {
 	originalSender string
 }
 
+type typewriterTickMsg time.Time
+
+func typewriterDelay(ch rune) time.Duration {
+	switch ch {
+	case '.', '!', '?':
+		return 250 * time.Millisecond
+	case ',', ';', ':':
+		return 120 * time.Millisecond
+	case '\n':
+		return 180 * time.Millisecond
+	default:
+		return 29 * time.Millisecond
+	}
+}
+
+func typewriterTick(delay time.Duration) tea.Cmd {
+	return tea.Tick(delay, func(t time.Time) tea.Msg { return typewriterTickMsg(t) })
+}
+
 // ReadLetterModel displays a single letter.
 type ReadLetterModel struct {
 	app          *AppState
@@ -275,12 +295,25 @@ type ReadLetterModel struct {
 	err          string
 	isContact    bool
 	addedContact bool
+	// Typewriter state
+	runes    []rune
+	revealed int
+	typing   bool
 }
 
 func NewReadLetterModel(app *AppState, item protocol.InboxItem, body string) ReadLetterModel {
 	vp := viewport.New(contentWidth(), viewportHeight()-1)
-	vp.SetContent("\n" + body)
-	return ReadLetterModel{app: app, item: item, body: body, viewport: vp, isContact: true}
+	wrapped := lipgloss.NewStyle().Width(contentWidth()).Render(body)
+	m := ReadLetterModel{app: app, item: item, body: wrapped, viewport: vp, isContact: true}
+	if item.ReadAt == nil {
+		m.runes = []rune(wrapped)
+		m.typing = true
+		vp.SetContent("\n")
+	} else {
+		vp.SetContent("\n" + wrapped)
+	}
+	m.viewport = vp
+	return m
 }
 
 type readLetterContactsMsg struct {
@@ -288,7 +321,7 @@ type readLetterContactsMsg struct {
 }
 
 func (m ReadLetterModel) Init() tea.Cmd {
-	return tea.Batch(
+	cmds := []tea.Cmd{
 		func() tea.Msg {
 			m.app.Network.MarkRead(context.Background(), m.item.MessageID)
 			return nil
@@ -300,13 +333,42 @@ func (m ReadLetterModel) Init() tea.Cmd {
 			}
 			return readLetterContactsMsg{contacts: contacts}
 		},
-	)
+	}
+	if m.typing {
+		cmds = append(cmds, typewriterTick(29*time.Millisecond))
+	}
+	return tea.Batch(cmds...)
 }
 
 func (m ReadLetterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	isSystem := m.item.SenderID == models.SystemUserID
 	switch msg := msg.(type) {
+	case typewriterTickMsg:
+		if !m.typing || m.revealed >= len(m.runes) {
+			m.typing = false
+			return m, nil
+		}
+		ch := m.runes[m.revealed]
+		m.revealed++
+		// Skip past whitespace-only runs (e.g. lipgloss padding on blank lines)
+		for m.revealed < len(m.runes) && m.runes[m.revealed] == ' ' {
+			m.revealed++
+		}
+		m.viewport.SetContent("\n" + string(m.runes[:m.revealed]))
+		m.viewport.GotoBottom()
+		if m.revealed >= len(m.runes) {
+			m.typing = false
+			return m, nil
+		}
+		return m, typewriterTick(typewriterDelay(ch))
 	case tea.KeyMsg:
+		if m.typing {
+			m.typing = false
+			m.revealed = len(m.runes)
+			m.viewport.SetContent("\n" + m.body)
+			m.viewport.GotoBottom()
+			return m, nil
+		}
 		switch msg.String() {
 		case "a":
 			if !isSystem && !m.isContact && !m.addedContact {
@@ -366,8 +428,10 @@ func (m ReadLetterModel) View() string {
 		selectedStyle.Render(m.item.SenderName), sentDate, arrDate)
 	header += "\n" + divider(contentWidth()) + "\n"
 
-	help := ""
-	if m.item.SenderID == models.SystemUserID {
+	var help string
+	if m.typing {
+		help = "press any key to skip"
+	} else if m.item.SenderID == models.SystemUserID {
 		help = "[b] back"
 	} else {
 		if m.addedContact {
