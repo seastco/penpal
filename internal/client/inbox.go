@@ -278,7 +278,7 @@ func typewriterDelay(ch rune) time.Duration {
 	case '\n':
 		return 180 * time.Millisecond
 	default:
-		return 29 * time.Millisecond
+		return 30 * time.Millisecond
 	}
 }
 

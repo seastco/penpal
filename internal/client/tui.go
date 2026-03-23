@@ -10,11 +10,13 @@ import (
 
 // TUI is the root bubbletea model that orchestrates screen switching.
 type TUI struct {
-	app           *AppState
-	currentModel  tea.Model
-	screen        Screen
-	cachedInbox   *InboxModel // preserved when entering a letter, restored on back
-	readingMsgIdx int         // index of the letter currently being read
+	app             *AppState
+	currentModel    tea.Model
+	screen          Screen
+	cachedInbox     *InboxModel     // preserved when entering a letter, restored on back
+	readingMsgIdx   int             // index of the letter currently being read
+	cachedSent      *SentModel      // preserved when entering tracking from sent
+	cachedInTransit *InTransitModel // preserved when entering tracking from in-transit
 }
 
 // NewTUI creates the root TUI model.
@@ -101,6 +103,12 @@ func (t TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		t.screen = ScreenCompose
 		return t, m.Init()
 	case trackLetterMsg:
+		if sent, ok := t.currentModel.(SentModel); ok {
+			t.cachedSent = &sent
+		}
+		if inTransit, ok := t.currentModel.(InTransitModel); ok {
+			t.cachedInTransit = &inTransit
+		}
 		m := NewTrackingModel(t.app, msg.msgID, msg.label, msg.origin)
 		t.currentModel = m
 		t.screen = ScreenTracking
@@ -131,8 +139,22 @@ func (t TUI) switchTo(screen Screen) (tea.Model, tea.Cmd) {
 		}
 		m = NewInboxModel(t.app)
 	case ScreenInTransit:
+		if t.cachedInTransit != nil {
+			inTransit := *t.cachedInTransit
+			t.cachedInTransit = nil
+			t.currentModel = inTransit
+			t.screen = screen
+			return t, nil
+		}
 		m = NewInTransitModel(t.app)
 	case ScreenSent:
+		if t.cachedSent != nil {
+			sent := *t.cachedSent
+			t.cachedSent = nil
+			t.currentModel = sent
+			t.screen = screen
+			return t, nil
+		}
 		m = NewSentModel(t.app)
 	case ScreenCompose:
 		m = NewComposeModel(t.app)
