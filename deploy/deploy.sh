@@ -2,22 +2,19 @@
 set -euo pipefail
 
 # Deploy latest Penpal release (or specified version)
-# Run as root: bash deploy.sh [version] [--force-graph]
+# Run as root: bash deploy.sh [version]
 #
 # Examples:
 #   bash deploy.sh              # latest release
 #   bash deploy.sh v0.0.6       # specific version
-#   bash deploy.sh --force-graph  # latest + re-download graph.json
 
 REPO="seastco/penpal"
 INSTALL_DIR="/opt/penpal"
 ARCH="amd64"
-FORCE_GRAPH=false
 VERSION=""
 
 for arg in "$@"; do
     case "$arg" in
-        --force-graph) FORCE_GRAPH=true ;;
         v*) VERSION="$arg" ;;
     esac
 done
@@ -59,21 +56,16 @@ trap "rm -rf $TMPDIR" EXIT
 curl -sfL -o "${TMPDIR}/${ARCHIVE}" "$URL"
 tar -xzf "${TMPDIR}/${ARCHIVE}" -C "$TMPDIR"
 
-# Download graph.json if missing or forced
-if [ ! -f "${INSTALL_DIR}/graph.json" ] || [ "$FORCE_GRAPH" = true ]; then
-    echo "==> Downloading graph.json"
-    GRAPH_URL="https://github.com/${REPO}/releases/download/${VERSION}/graph.json"
-    curl -sfL -o "${INSTALL_DIR}/graph.json" "$GRAPH_URL"
-    chown penpal:penpal "${INSTALL_DIR}/graph.json"
-fi
+# Always download graph.json and international_cities.json to stay current
+echo "==> Downloading graph.json"
+GRAPH_URL="https://github.com/${REPO}/releases/download/${VERSION}/graph.json"
+curl -sfL -o "${INSTALL_DIR}/graph.json" "$GRAPH_URL"
+chown penpal:penpal "${INSTALL_DIR}/graph.json"
 
-# Download international_cities.json if missing or forced
-if [ ! -f "${INSTALL_DIR}/international_cities.json" ] || [ "$FORCE_GRAPH" = true ]; then
-    echo "==> Downloading international_cities.json"
-    INTL_URL="https://github.com/${REPO}/releases/download/${VERSION}/international_cities.json"
-    curl -sfL -o "${INSTALL_DIR}/international_cities.json" "$INTL_URL" || echo "WARNING: international_cities.json not in release"
-    chown penpal:penpal "${INSTALL_DIR}/international_cities.json" 2>/dev/null
-fi
+echo "==> Downloading international_cities.json"
+INTL_URL="https://github.com/${REPO}/releases/download/${VERSION}/international_cities.json"
+curl -sfL -o "${INSTALL_DIR}/international_cities.json" "$INTL_URL" || echo "WARNING: international_cities.json not in release"
+chown penpal:penpal "${INSTALL_DIR}/international_cities.json" 2>/dev/null
 
 # Stop service before overwriting binary (avoids "Text file busy" error)
 echo "==> Stopping penpal service"
