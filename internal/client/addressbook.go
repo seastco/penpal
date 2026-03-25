@@ -178,7 +178,7 @@ type AddContactModel struct {
 
 func NewAddContactModel(app *AppState) AddContactModel {
 	ti := textinput.New()
-	ti.Placeholder = "username#0000"
+	ti.Placeholder = "username#000"
 	ti.Focus()
 	ti.CharLimit = 37
 	ti.Width = contentWidth() - 8
@@ -214,8 +214,8 @@ func (m AddContactModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			addr := strings.TrimSpace(m.input.Value())
 			parts := strings.SplitN(addr, "#", 2)
-			if len(parts) != 2 || len(parts[1]) != 4 {
-				m.err = "invalid address format (use username#0000)"
+			if len(parts) != 2 || len(parts[1]) < 3 || len(parts[1]) > 4 {
+				m.err = "invalid address format (use username#000)"
 				return m, nil
 			}
 			username, disc := parts[0], parts[1]

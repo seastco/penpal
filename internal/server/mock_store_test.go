@@ -48,7 +48,7 @@ func (m *mockStore) CreateUser(_ context.Context, username string, publicKey []b
 	user := &models.User{
 		ID:            uuid.New(),
 		Username:      username,
-		Discriminator: fmt.Sprintf("%04d", len(m.users)),
+		Discriminator: fmt.Sprintf("%03d", len(m.users)),
 		PublicKey:     publicKey,
 		HomeCity:      homeCity,
 		HomeLat:       lat,
@@ -114,6 +114,30 @@ func (m *mockStore) UpdateHomeCity(_ context.Context, userID uuid.UUID, city str
 		u.HomeLng = lng
 	}
 	return nil
+}
+
+func (m *mockStore) UpdateUsername(_ context.Context, userID uuid.UUID, newUsername, currentDisc string) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Check if username+currentDisc is taken by someone else
+	for _, u := range m.users {
+		if u.ID != userID && u.Username == newUsername && u.Discriminator == currentDisc {
+			// Collision — assign a new discriminator
+			if target, ok := m.users[userID]; ok {
+				target.Username = newUsername
+				target.Discriminator = fmt.Sprintf("%03d", len(m.users)+1)
+				return target.Discriminator, nil
+			}
+			return "", fmt.Errorf("user not found")
+		}
+	}
+
+	if u, ok := m.users[userID]; ok {
+		u.Username = newUsername
+		return currentDisc, nil
+	}
+	return "", fmt.Errorf("user not found")
 }
 
 func (m *mockStore) AddContact(_ context.Context, ownerID, contactID uuid.UUID) error {

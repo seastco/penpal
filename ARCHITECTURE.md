@@ -98,7 +98,7 @@ Shipping tier speeds:
 
 Postgres with `lib/pq`. Migrations are embedded via `//go:embed` in `internal/db/migrations/` and auto-run on server startup. The schema has six tables:
 
-- **users** - identity, public key, home city coordinates, discriminator (4-digit tag for duplicate usernames)
+- **users** - identity, public key, home city coordinates, discriminator (3-digit tag for duplicate usernames)
 - **messages** - encrypted body, sender/recipient, shipping tier, route (JSONB array of hops with ETAs), status, timestamps
 - **contacts** - bidirectional contact list (owner_id, contact_id)
 - **stamps** - collectible stamps with type, rarity, and provenance (registration, weekly, delivery, transfer)

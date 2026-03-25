@@ -286,6 +286,8 @@ func (c *Client) handleMessage(ctx context.Context, env protocol.Envelope) error
 		return c.requireAuth(func() error { return c.handleGetShipping(ctx, env) })
 	case protocol.MsgUpdateHomeCity:
 		return c.requireAuth(func() error { return c.handleUpdateHomeCity(ctx, env) })
+	case protocol.MsgUpdateUsername:
+		return c.requireAuth(func() error { return c.handleUpdateUsername(ctx, env) })
 	default:
 		return fmt.Errorf("unknown message type: %s", env.Type)
 	}
@@ -1057,6 +1059,50 @@ func (c *Client) handleUpdateHomeCity(ctx context.Context, env protocol.Envelope
 	}
 
 	c.sendResponse(env.ReqID, protocol.MsgHomeCityUpdated, nil)
+	return nil
+}
+
+func (c *Client) handleUpdateUsername(ctx context.Context, env protocol.Envelope) error {
+	data, _ := json.Marshal(env.Payload)
+	var req protocol.UpdateUsernameRequest
+	if err := json.Unmarshal(data, &req); err != nil {
+		return fmt.Errorf("invalid update username request: %w", err)
+	}
+
+	username := strings.ToLower(strings.TrimSpace(req.Username))
+	if len(username) < 1 || len(username) > 32 {
+		return fmt.Errorf("username must be 1-32 characters")
+	}
+	if username == "penpal" {
+		return fmt.Errorf("username 'penpal' is reserved")
+	}
+	if c.userID == SystemUserID {
+		return fmt.Errorf("cannot change system user username")
+	}
+
+	user, err := c.server.db.GetUserByID(ctx, c.userID)
+	if err != nil || user == nil {
+		return fmt.Errorf("user lookup failed")
+	}
+
+	// No-op if username is the same
+	if user.Username == username {
+		c.sendResponse(env.ReqID, protocol.MsgUsernameUpdated, protocol.UpdateUsernameResponse{
+			Username:      username,
+			Discriminator: user.Discriminator,
+		})
+		return nil
+	}
+
+	newDisc, err := c.server.db.UpdateUsername(ctx, c.userID, username, user.Discriminator)
+	if err != nil {
+		return fmt.Errorf("updating username: %w", err)
+	}
+
+	c.sendResponse(env.ReqID, protocol.MsgUsernameUpdated, protocol.UpdateUsernameResponse{
+		Username:      username,
+		Discriminator: newDisc,
+	})
 	return nil
 }
 

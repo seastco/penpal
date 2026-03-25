@@ -657,3 +657,156 @@ func TestHandleGetTracking_NotYourMessage(t *testing.T) {
 		t.Fatal("expected error for tracking someone else's message")
 	}
 }
+
+func TestHandleUpdateUsername_Success(t *testing.T) {
+	store := newMockStore()
+	s := testServer(t, store)
+	c := testClient(s)
+
+	user := &models.User{
+		ID: uuid.New(), Username: "alice", Discriminator: "0001",
+		PublicKey: []byte("key"), HomeCity: "Boston, MA",
+		HomeLat: 42.36, HomeLng: -71.06,
+		LastActive: time.Now(), CreatedAt: time.Now(),
+	}
+	store.addUser(user)
+	c.userID = user.ID
+	s.hub.Register(c)
+
+	env := makeEnvelope(protocol.MsgUpdateUsername, protocol.UpdateUsernameRequest{
+		Username: "bob",
+	})
+
+	if err := c.handleMessage(context.Background(), env); err != nil {
+		t.Fatalf("handleUpdateUsername: %v", err)
+	}
+
+	resp := readResponse(t, c)
+	if resp.Type != protocol.MsgUsernameUpdated {
+		t.Fatalf("expected username_updated, got %s", resp.Type)
+	}
+
+	data, _ := json.Marshal(resp.Payload)
+	var result protocol.UpdateUsernameResponse
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if result.Username != "bob" {
+		t.Fatalf("expected username 'bob', got %q", result.Username)
+	}
+	if result.Discriminator != "0001" {
+		t.Fatalf("expected discriminator '0001', got %q", result.Discriminator)
+	}
+
+	// Verify DB was updated
+	updated, _ := store.GetUserByID(context.Background(), user.ID)
+	if updated.Username != "bob" {
+		t.Fatalf("expected DB username 'bob', got %q", updated.Username)
+	}
+}
+
+func TestHandleUpdateUsername_ReservedName(t *testing.T) {
+	store := newMockStore()
+	s := testServer(t, store)
+	c := testClient(s)
+
+	user := &models.User{
+		ID: uuid.New(), Username: "alice", Discriminator: "0001",
+		PublicKey: []byte("key"), HomeCity: "Boston, MA",
+		HomeLat: 42.36, HomeLng: -71.06,
+		LastActive: time.Now(), CreatedAt: time.Now(),
+	}
+	store.addUser(user)
+	c.userID = user.ID
+	s.hub.Register(c)
+
+	env := makeEnvelope(protocol.MsgUpdateUsername, protocol.UpdateUsernameRequest{
+		Username: "penpal",
+	})
+
+	err := c.handleMessage(context.Background(), env)
+	if err == nil {
+		t.Fatal("expected error for reserved username 'penpal'")
+	}
+}
+
+func TestHandleUpdateUsername_EmptyName(t *testing.T) {
+	store := newMockStore()
+	s := testServer(t, store)
+	c := testClient(s)
+
+	user := &models.User{
+		ID: uuid.New(), Username: "alice", Discriminator: "0001",
+		PublicKey: []byte("key"), HomeCity: "Boston, MA",
+		HomeLat: 42.36, HomeLng: -71.06,
+		LastActive: time.Now(), CreatedAt: time.Now(),
+	}
+	store.addUser(user)
+	c.userID = user.ID
+	s.hub.Register(c)
+
+	env := makeEnvelope(protocol.MsgUpdateUsername, protocol.UpdateUsernameRequest{
+		Username: "",
+	})
+
+	err := c.handleMessage(context.Background(), env)
+	if err == nil {
+		t.Fatal("expected error for empty username")
+	}
+}
+
+func TestHandleUpdateUsername_SameName(t *testing.T) {
+	store := newMockStore()
+	s := testServer(t, store)
+	c := testClient(s)
+
+	user := &models.User{
+		ID: uuid.New(), Username: "alice", Discriminator: "0001",
+		PublicKey: []byte("key"), HomeCity: "Boston, MA",
+		HomeLat: 42.36, HomeLng: -71.06,
+		LastActive: time.Now(), CreatedAt: time.Now(),
+	}
+	store.addUser(user)
+	c.userID = user.ID
+	s.hub.Register(c)
+
+	env := makeEnvelope(protocol.MsgUpdateUsername, protocol.UpdateUsernameRequest{
+		Username: "alice",
+	})
+
+	if err := c.handleMessage(context.Background(), env); err != nil {
+		t.Fatalf("handleUpdateUsername same name: %v", err)
+	}
+
+	resp := readResponse(t, c)
+	if resp.Type != protocol.MsgUsernameUpdated {
+		t.Fatalf("expected username_updated, got %s", resp.Type)
+	}
+
+	data, _ := json.Marshal(resp.Payload)
+	var result protocol.UpdateUsernameResponse
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if result.Username != "alice" {
+		t.Fatalf("expected 'alice', got %q", result.Username)
+	}
+	if result.Discriminator != "0001" {
+		t.Fatalf("expected '0001', got %q", result.Discriminator)
+	}
+}
+
+func TestHandleUpdateUsername_NotAuthenticated(t *testing.T) {
+	store := newMockStore()
+	s := testServer(t, store)
+	c := testClient(s)
+
+	env := makeEnvelope(protocol.MsgUpdateUsername, protocol.UpdateUsernameRequest{
+		Username: "bob",
+	})
+
+	err := c.handleMessage(context.Background(), env)
+	if err == nil {
+		t.Fatal("expected error for unauthenticated request")
+	}
+}

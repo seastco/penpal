@@ -21,6 +21,7 @@ type Store interface {
 	GetUserByPublicKey(ctx context.Context, publicKey []byte) (*models.User, error)
 	TouchUserActive(ctx context.Context, userID uuid.UUID) error
 	UpdateHomeCity(ctx context.Context, userID uuid.UUID, city string, lat, lng float64) error
+	UpdateUsername(ctx context.Context, userID uuid.UUID, newUsername, currentDiscriminator string) (string, error)
 
 	// Contact operations
 	AddContact(ctx context.Context, ownerID, contactID uuid.UUID) error

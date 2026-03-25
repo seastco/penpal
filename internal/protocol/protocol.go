@@ -34,6 +34,7 @@ const (
 	MsgSearchCities    MessageType = "search_cities"
 	MsgGetShipping     MessageType = "get_shipping"
 	MsgUpdateHomeCity  MessageType = "update_home_city"
+	MsgUpdateUsername  MessageType = "update_username"
 	MsgRecover         MessageType = "recover"
 
 	// Server -> Client
@@ -53,6 +54,7 @@ const (
 	MsgCityResults     MessageType = "city_results"
 	MsgShippingInfo    MessageType = "shipping_info"
 	MsgHomeCityUpdated MessageType = "home_city_updated"
+	MsgUsernameUpdated MessageType = "username_updated"
 	MsgRecoverOK       MessageType = "recover_ok"
 )
 
@@ -139,6 +141,10 @@ type UpdateHomeCityRequest struct {
 	Lng  float64 `json:"lng"`
 }
 
+type UpdateUsernameRequest struct {
+	Username string `json:"username"`
+}
+
 type GetInboxRequest struct {
 	Before *time.Time `json:"before,omitempty"` // cursor: fetch letters delivered before this time
 	Limit  int        `json:"limit,omitempty"`  // page size (default 100, max 100)
@@ -158,6 +164,11 @@ type RecoverRequest struct {
 type RegisterResponse struct {
 	UserID        uuid.UUID `json:"user_id"`
 	Discriminator string    `json:"discriminator"`
+}
+
+type UpdateUsernameResponse struct {
+	Username      string `json:"username"`
+	Discriminator string `json:"discriminator"`
 }
 
 type AuthChallengeResponse struct {

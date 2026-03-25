@@ -213,7 +213,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		disc := fmt.Sprintf("%04d", 1001+i)
+		disc := fmt.Sprintf("%03d", 101+i)
 		city := cities[i]
 
 		var id uuid.UUID
