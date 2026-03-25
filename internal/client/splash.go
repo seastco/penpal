@@ -4,8 +4,8 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 type splashTickMsg time.Time
@@ -28,7 +28,7 @@ func (m SplashModel) Init() tea.Cmd {
 
 func (m SplashModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		return m, func() tea.Msg { return switchScreenMsg{screen: ScreenHome} }
 	case splashTickMsg:
 		m.frame++
@@ -40,7 +40,7 @@ func (m SplashModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m SplashModel) View() string {
+func (m SplashModel) View() tea.View {
 	f := m.frame
 
 	titleSt := lipgloss.NewStyle().Foreground(colorPrimary).Bold(true)
@@ -119,5 +119,5 @@ func (m SplashModel) View() string {
 		AlignVertical(lipgloss.Center).
 		AlignHorizontal(lipgloss.Center).
 		Render(b.String())
-	return screenBox().Render(inner)
+	return tea.NewView(screenBox().Render(inner))
 }

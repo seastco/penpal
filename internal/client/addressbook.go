@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/textinput"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
 	"github.com/seastco/penpal/internal/protocol"
 )
 
@@ -23,7 +23,7 @@ type AddressBookModel struct {
 }
 
 func NewAddressBookModel(app *AppState) AddressBookModel {
-	vp := viewport.New(contentWidth(), viewportHeight()-4)
+	vp := viewport.New(viewport.WithWidth(contentWidth()), viewport.WithHeight(viewportHeight()-4))
 	vp.KeyMap = viewport.KeyMap{}
 	m := AddressBookModel{app: app, loading: true, viewport: vp}
 	return m.syncViewport()
@@ -41,7 +41,7 @@ func (m AddressBookModel) Init() tea.Cmd {
 
 func (m AddressBookModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if m.confirmDelete {
 			if msg.String() == "y" {
 				m.confirmDelete = false
@@ -87,7 +87,7 @@ func (m AddressBookModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg { return switchScreenMsg{screen: ScreenHome} }
 		}
 	case tea.WindowSizeMsg:
-		m.viewport.Width = contentWidth()
+		m.viewport.SetWidth(contentWidth())
 	case contactsLoadedMsg:
 		m.contacts = msg.contacts
 		m.loading = false
@@ -104,7 +104,7 @@ func (m AddressBookModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m AddressBookModel) syncViewport() AddressBookModel {
 	bh := adaptiveBoxHeight(len(m.contacts), 10)
-	m.viewport.Height = bh - 10
+	m.viewport.SetHeight(bh - 10)
 
 	var content string
 	if m.err != "" {
@@ -129,32 +129,32 @@ func (m AddressBookModel) syncViewport() AddressBookModel {
 		content = b.String()
 	}
 
-	yOffset := m.viewport.YOffset
+	yOffset := m.viewport.YOffset()
 	m.viewport.SetContent(content)
 	if len(m.contacts) > 0 {
 		m.viewport.SetYOffset(yOffset)
-		if m.cursor < m.viewport.YOffset {
+		if m.cursor < m.viewport.YOffset() {
 			m.viewport.SetYOffset(m.cursor)
-		} else if m.cursor >= m.viewport.YOffset+m.viewport.Height {
-			m.viewport.SetYOffset(m.cursor - m.viewport.Height + 1)
+		} else if m.cursor >= m.viewport.YOffset()+m.viewport.Height() {
+			m.viewport.SetYOffset(m.cursor - m.viewport.Height() + 1)
 		}
 	}
 	return m
 }
 
-func (m AddressBookModel) View() string {
+func (m AddressBookModel) View() tea.View {
 	title := titleStyle.Render("ADDRESS BOOK")
 	header := title + "\n" + divider(contentWidth()) + "\n"
 	header += fmt.Sprintf("\nyour address: %s\n\ncontacts:\n", selectedStyle.Render(m.app.Address()))
 	if m.loading {
-		return emptyScreenView(header, "", "[b] back")
+		return tea.NewView(emptyScreenView(header, "", "[b] back"))
 	}
 	if len(m.contacts) == 0 {
 		body := mutedStyle.Render("no contacts yet")
 		if m.err != "" {
 			body = errorStyle.Render(m.err)
 		}
-		return emptyScreenView(header, body, "[a] add new  [b] back")
+		return tea.NewView(emptyScreenView(header, body, "[a] add new  [b] back"))
 	}
 	m = m.syncViewport()
 	bh := adaptiveBoxHeight(len(m.contacts), 10)
@@ -165,7 +165,7 @@ func (m AddressBookModel) View() string {
 	} else {
 		footer = "\n\n" + helpStyle.Render("[a] add new  [d] delete  [b] back")
 	}
-	return screenBox().Height(bh).Render(header + m.viewport.View() + footer)
+	return tea.NewView(screenBox().Height(bh).Render(header + m.viewport.View() + footer))
 }
 
 // AddContactModel handles adding a new contact.
@@ -181,7 +181,7 @@ func NewAddContactModel(app *AppState) AddContactModel {
 	ti.Placeholder = "username#000"
 	ti.Focus()
 	ti.CharLimit = 37
-	ti.Width = contentWidth() - 8
+	ti.SetWidth(contentWidth() - 8)
 
 	return AddContactModel{
 		app:   app,
@@ -199,7 +199,7 @@ func (m AddContactModel) Init() tea.Cmd {
 
 func (m AddContactModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		// After successful add, handle done/add-another
 		if m.added != nil {
 			switch msg.String() {
@@ -239,7 +239,7 @@ func (m AddContactModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m AddContactModel) View() string {
+func (m AddContactModel) View() tea.View {
 	title := titleStyle.Render("ADD CONTACT")
 	content := title + "\n" + divider(contentWidth()) + "\n"
 
@@ -255,5 +255,5 @@ func (m AddContactModel) View() string {
 		}
 		content += "\n" + helpStyle.Render("[enter] add  [ctrl+b] back")
 	}
-	return screenBox().Render(content)
+	return tea.NewView(screenBox().Render(content))
 }

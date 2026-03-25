@@ -7,9 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
 	"github.com/google/uuid"
 	pencrypto "github.com/seastco/penpal/internal/crypto"
 	"github.com/seastco/penpal/internal/models"
@@ -30,7 +29,7 @@ type InboxModel struct {
 }
 
 func NewInboxModel(app *AppState) InboxModel {
-	vp := viewport.New(contentWidth(), viewportHeight())
+	vp := viewport.New(viewport.WithWidth(contentWidth()), viewport.WithHeight(viewportHeight()))
 	vp.KeyMap = viewport.KeyMap{}
 	m := InboxModel{app: app, loading: true, viewport: vp}
 	return m.syncViewport()
@@ -68,7 +67,7 @@ func (m InboxModel) maybePrefetch() tea.Cmd {
 
 func (m InboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if m.confirmDelete {
 			if msg.String() == "y" && m.cursor < len(m.items) {
 				item := m.items[m.cursor]
@@ -156,7 +155,7 @@ func (m InboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg { return switchScreenMsg{screen: ScreenHome} }
 		}
 	case tea.WindowSizeMsg:
-		m.viewport.Width = contentWidth()
+		m.viewport.SetWidth(contentWidth())
 	case inboxLoadedMsg:
 		if msg.append {
 			m.items = append(m.items, msg.items...)
@@ -180,7 +179,7 @@ func (m InboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m InboxModel) syncViewport() InboxModel {
 	bh := adaptiveBoxHeight(len(m.items), 6)
-	m.viewport.Height = bh - 6
+	m.viewport.SetHeight(bh - 6)
 
 	var content string
 	if m.err != "" {
@@ -210,32 +209,32 @@ func (m InboxModel) syncViewport() InboxModel {
 		content = b.String()
 	}
 
-	yOffset := m.viewport.YOffset
+	yOffset := m.viewport.YOffset()
 	m.viewport.SetContent(content)
 	if len(m.items) > 0 {
 		m.viewport.SetYOffset(yOffset)
 		// Keep cursor visible
-		if m.cursor < m.viewport.YOffset {
+		if m.cursor < m.viewport.YOffset() {
 			m.viewport.SetYOffset(m.cursor)
-		} else if m.cursor >= m.viewport.YOffset+m.viewport.Height {
-			m.viewport.SetYOffset(m.cursor - m.viewport.Height + 1)
+		} else if m.cursor >= m.viewport.YOffset()+m.viewport.Height() {
+			m.viewport.SetYOffset(m.cursor - m.viewport.Height() + 1)
 		}
 	}
 	return m
 }
 
-func (m InboxModel) View() string {
+func (m InboxModel) View() tea.View {
 	title := titleStyle.Render("INBOX")
 	header := title + "\n" + divider(contentWidth()) + "\n"
 	if m.loading {
-		return emptyScreenView(header, "", "[b] back")
+		return tea.NewView(emptyScreenView(header, "", "[b] back"))
 	}
 	if len(m.items) == 0 {
 		body := "\n" + mutedStyle.Render("no letters yet")
 		if m.err != "" {
 			body = "\n" + errorStyle.Render(m.err)
 		}
-		return emptyScreenView(header, body, "[b] back")
+		return tea.NewView(emptyScreenView(header, body, "[b] back"))
 	}
 	m = m.syncViewport()
 	bh := adaptiveBoxHeight(len(m.items), 6)
@@ -250,7 +249,7 @@ func (m InboxModel) View() string {
 		}
 		footer = "\n\n" + helpStyle.Render(helpText)
 	}
-	return screenBox().Height(bh).Render(header + m.viewport.View() + footer)
+	return tea.NewView(screenBox().Height(bh).Render(header + m.viewport.View() + footer))
 }
 
 // --- Read Letter ---
@@ -302,15 +301,15 @@ type ReadLetterModel struct {
 }
 
 func NewReadLetterModel(app *AppState, item protocol.InboxItem, body string) ReadLetterModel {
-	vp := viewport.New(contentWidth(), viewportHeight()-1)
-	wrapped := lipgloss.NewStyle().Width(contentWidth()).Render(body)
-	m := ReadLetterModel{app: app, item: item, body: wrapped, viewport: vp, isContact: true}
+	vp := viewport.New(viewport.WithWidth(contentWidth()), viewport.WithHeight(viewportHeight()-1))
+	vp.SoftWrap = true
+	m := ReadLetterModel{app: app, item: item, body: body, viewport: vp, isContact: true}
 	if item.ReadAt == nil {
-		m.runes = []rune(wrapped)
+		m.runes = []rune(body)
 		m.typing = true
 		vp.SetContent("\n")
 	} else {
-		vp.SetContent("\n" + wrapped)
+		vp.SetContent("\n" + body)
 	}
 	m.viewport = vp
 	return m
@@ -361,7 +360,7 @@ func (m ReadLetterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, typewriterTick(typewriterDelay(ch))
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if m.typing {
 			m.typing = false
 			m.revealed = len(m.runes)
@@ -408,8 +407,8 @@ func (m ReadLetterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.isContact = true
 		m.addedContact = true
 	case tea.WindowSizeMsg:
-		m.viewport.Width = contentWidth()
-		m.viewport.Height = viewportHeight() - 1
+		m.viewport.SetWidth(contentWidth())
+		m.viewport.SetHeight(viewportHeight() - 1)
 	case errMsg:
 		m.err = msg.err.Error()
 	}
@@ -420,7 +419,7 @@ func (m ReadLetterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 type contactAddedInReadMsg struct{}
 
-func (m ReadLetterModel) View() string {
+func (m ReadLetterModel) View() tea.View {
 	sentDate := m.item.SentAt.Format("Jan 2 3:04pm")
 	arrDate := m.item.DeliveredAt.Format("Jan 2 3:04pm")
 
@@ -442,7 +441,7 @@ func (m ReadLetterModel) View() string {
 		help += "[r] reply  [b] back"
 	}
 	footer := "\n\n" + helpStyle.Render(help)
-	return screenBoxFixed().Render(header + m.viewport.View() + footer)
+	return tea.NewView(screenBoxFixed().Render(header + m.viewport.View() + footer))
 }
 
 func (n *Network) GetMessage(ctx context.Context, msgID uuid.UUID) (*protocol.GetMessageResponse, error) {

@@ -3,7 +3,7 @@ package client
 import (
 	"fmt"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // Screen represents which screen is currently displayed.
@@ -49,7 +49,7 @@ func (m HomeModel) Init() tea.Cmd {
 
 func (m HomeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "i":
 			return m, func() tea.Msg { return switchScreenMsg{screen: ScreenInbox} }
@@ -73,7 +73,7 @@ func (m HomeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m HomeModel) View() string {
+func (m HomeModel) View() tea.View {
 	title := headerLine(titleStyle.Render("PENPAL"), mutedStyle.Render(m.app.Address()))
 
 	inbox := fmt.Sprintf("%s Inbox", menuKeyStyle.Render("[i]"))
@@ -100,7 +100,7 @@ func (m HomeModel) View() string {
 		quit,
 	)
 
-	return screenBox().Render(content)
+	return tea.NewView(screenBox().Render(content))
 }
 
 // --- Messages ---

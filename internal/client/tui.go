@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	pencrypto "github.com/seastco/penpal/internal/crypto"
 )
 
@@ -49,14 +49,7 @@ func NewTUI(app *AppState) TUI {
 }
 
 func (t TUI) Init() tea.Cmd {
-	title := "Penpal"
-	if t.app.Username != "" {
-		title = fmt.Sprintf("Penpal — %s", t.app.Address())
-	}
-	return tea.Batch(
-		t.currentModel.Init(),
-		tea.SetWindowTitle(title),
-	)
+	return tea.Batch(t.currentModel.Init(), tea.RequestBackgroundColor)
 }
 
 func (t TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -67,6 +60,9 @@ func (t TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case tea.BackgroundColorMsg:
+		setDarkMode(msg.IsDark())
+		return t, nil
 	case switchScreenMsg:
 		return t.switchTo(msg.screen)
 	case readLetterMsg:
@@ -183,6 +179,13 @@ func (t TUI) switchTo(screen Screen) (tea.Model, tea.Cmd) {
 	return t, m.Init()
 }
 
-func (t TUI) View() string {
-	return centeredView(t.currentModel.View())
+func (t TUI) View() tea.View {
+	title := "Penpal"
+	if t.app.Username != "" {
+		title = fmt.Sprintf("Penpal — %s", t.app.Address())
+	}
+	v := tea.NewView(centeredView(t.currentModel.View().Content))
+	v.AltScreen = true
+	v.WindowTitle = title
+	return v
 }
