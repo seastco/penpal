@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -17,9 +18,15 @@ const (
 	settingsMenu settingsMode = iota
 	settingsCity
 	settingsTheme
+	settingsUsername
 )
 
 type homeCityUpdatedMsg struct{}
+
+type usernameUpdatedMsg struct {
+	username      string
+	discriminator string
+}
 
 type SettingsModel struct {
 	app    *AppState
@@ -35,12 +42,19 @@ type SettingsModel struct {
 	themeIdx  int
 	prevTheme string // to revert on cancel
 
+	// Username editing state
+	usernameInput textinput.Model
+	usernameErr   string
 }
 
 func NewSettingsModel(app *AppState) SettingsModel {
 	ti := textinput.New()
 	ti.Placeholder = "city name..."
 	ti.CharLimit = 40
+
+	ui := textinput.New()
+	ui.Placeholder = "new username"
+	ui.CharLimit = 32
 
 	// Find current theme index
 	themeIdx := 0
@@ -52,9 +66,10 @@ func NewSettingsModel(app *AppState) SettingsModel {
 	}
 
 	return SettingsModel{
-		app:       app,
-		cityInput: ti,
-		themeIdx:  themeIdx,
+		app:           app,
+		cityInput:     ti,
+		usernameInput: ui,
+		themeIdx:      themeIdx,
 	}
 }
 
@@ -66,6 +81,8 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateCity(msg)
 	case settingsTheme:
 		return m.updateTheme(msg)
+	case settingsUsername:
+		return m.updateUsername(msg)
 	default:
 		return m.updateMenu(msg)
 	}
@@ -80,21 +97,27 @@ func (m SettingsModel) updateMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor--
 			}
 		case "down", "j":
-			if m.cursor < 2 {
+			if m.cursor < 3 {
 				m.cursor++
 			}
 		case "enter":
 			switch m.cursor {
-			case 0: // Home City
+			case 0: // Username
+				m.mode = settingsUsername
+				m.usernameInput.SetValue(m.app.Username)
+				m.usernameErr = ""
+				m.usernameInput.Focus()
+				return m, textinput.Blink
+			case 1: // Home City
 				m.mode = settingsCity
 				m.cityInput.SetValue("")
 				m.cityResults = nil
 				m.cityIdx = 0
 				m.cityInput.Focus()
 				return m, textinput.Blink
-			case 1: // PIN
+			case 2: // PIN
 				return m, func() tea.Msg { return switchScreenMsg{screen: ScreenPinSetup} }
-			case 2: // Theme
+			case 3: // Theme
 				m.mode = settingsTheme
 				m.prevTheme = m.app.ThemeName
 				return m, nil
@@ -191,6 +214,65 @@ func (m SettingsModel) updateCity(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m SettingsModel) updateUsername(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "enter":
+			username := strings.ToLower(strings.TrimSpace(m.usernameInput.Value()))
+			if len(username) < 1 {
+				m.usernameErr = "username cannot be empty"
+				return m, nil
+			}
+			if len(username) > 32 {
+				m.usernameErr = "username must be 32 characters or less"
+				return m, nil
+			}
+			return m, func() tea.Msg {
+				ctx := context.Background()
+				resp, err := m.app.Network.Send(ctx, protocol.MsgUpdateUsername, protocol.UpdateUsernameRequest{
+					Username: username,
+				})
+				if err != nil {
+					return errMsg{err: err}
+				}
+				data, _ := json.Marshal(resp.Payload)
+				var result protocol.UpdateUsernameResponse
+				if err := json.Unmarshal(data, &result); err != nil {
+					return errMsg{err: err}
+				}
+				return usernameUpdatedMsg{
+					username:      result.Username,
+					discriminator: result.Discriminator,
+				}
+			}
+		case "ctrl+b", "esc":
+			m.mode = settingsMenu
+			m.usernameInput.Blur()
+			m.usernameErr = ""
+			return m, nil
+		case "ctrl+c":
+			return m, tea.Quit
+		default:
+			var cmd tea.Cmd
+			m.usernameInput, cmd = m.usernameInput.Update(msg)
+			return m, cmd
+		}
+	case usernameUpdatedMsg:
+		m.app.Username = msg.username
+		m.app.Discriminator = msg.discriminator
+		saveIdentity(msg.username, msg.discriminator)
+		m.app.Network.SetAuthCredentials(msg.username, msg.discriminator, m.app.PrivateKey)
+		m.mode = settingsMenu
+		m.usernameInput.Blur()
+		m.usernameErr = ""
+		return m, tea.SetWindowTitle(fmt.Sprintf("Penpal — %s", m.app.Address()))
+	case errMsg:
+		m.usernameErr = msg.err.Error()
+	}
+	return m, nil
+}
+
 func (m SettingsModel) updateTheme(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -237,6 +319,8 @@ func (m SettingsModel) View() string {
 		return m.viewCity()
 	case settingsTheme:
 		return m.viewTheme()
+	case settingsUsername:
+		return m.viewUsername()
 	default:
 		return m.viewMenu()
 	}
@@ -250,6 +334,7 @@ func (m SettingsModel) viewMenu() string {
 		label string
 		value string
 	}{
+		{"Username", m.app.Address()},
 		{"Home City", m.app.HomeCity},
 		{"PIN", m.pinDisplay()},
 		{"Theme", m.app.ThemeName},
@@ -327,6 +412,31 @@ func (m SettingsModel) viewCity() string {
 		prompt,
 		input,
 		cityList,
+		help,
+	)
+
+	return screenBox().Render(content)
+}
+
+func (m SettingsModel) viewUsername() string {
+	title := titleStyle.Render("PENPAL — USERNAME")
+	div := divider(contentWidth())
+
+	current := mutedStyle.Render(fmt.Sprintf("Current: %s", m.app.Address()))
+	input := fmt.Sprintf("username: %s", m.usernameInput.View())
+
+	var errLine string
+	if m.usernameErr != "" {
+		errLine = "\n" + errorStyle.Render(m.usernameErr)
+	}
+
+	help := helpStyle.Render("[enter] save  [esc] cancel")
+
+	content := fmt.Sprintf("%s\n%s\n\n%s\n\n%s%s\n\n%s",
+		title, div,
+		current,
+		input,
+		errLine,
 		help,
 	)
 

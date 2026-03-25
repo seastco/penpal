@@ -103,13 +103,13 @@ func (d *DB) Close() error {
 
 // --- User operations ---
 
-// generateDiscriminator creates a random 4-digit string.
+// generateDiscriminator creates a random 3-digit string.
 func generateDiscriminator() (string, error) {
-	n, err := rand.Int(rand.Reader, big.NewInt(10000))
+	n, err := rand.Int(rand.Reader, big.NewInt(1000))
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%04d", n.Int64()), nil
+	return fmt.Sprintf("%03d", n.Int64()), nil
 }
 
 // CreateUser registers a new user, assigning a unique discriminator.
@@ -209,6 +209,50 @@ func (d *DB) UpdateHomeCity(ctx context.Context, userID uuid.UUID, city string, 
 		userID, city, lat, lng,
 	)
 	return err
+}
+
+// UpdateUsername changes a user's username, preserving the discriminator if possible.
+// If the new username+current discriminator collides, a new discriminator is generated.
+// Returns the final discriminator.
+func (d *DB) UpdateUsername(ctx context.Context, userID uuid.UUID, newUsername, currentDiscriminator string) (string, error) {
+	// First try keeping the current discriminator.
+	result, err := d.pool.ExecContext(ctx,
+		`UPDATE users SET username = $2, discriminator = $3
+		 WHERE id = $1
+		 AND NOT EXISTS (
+		     SELECT 1 FROM users WHERE username = $2 AND discriminator = $3 AND id != $1
+		 )`,
+		userID, newUsername, currentDiscriminator,
+	)
+	if err != nil {
+		return "", fmt.Errorf("updating username: %w", err)
+	}
+	if n, _ := result.RowsAffected(); n == 1 {
+		return currentDiscriminator, nil
+	}
+
+	// Collision: try new random discriminators up to 10 times.
+	for i := 0; i < 10; i++ {
+		disc, err := generateDiscriminator()
+		if err != nil {
+			return "", fmt.Errorf("generating discriminator: %w", err)
+		}
+		result, err = d.pool.ExecContext(ctx,
+			`UPDATE users SET username = $2, discriminator = $3
+			 WHERE id = $1
+			 AND NOT EXISTS (
+			     SELECT 1 FROM users WHERE username = $2 AND discriminator = $3 AND id != $1
+			 )`,
+			userID, newUsername, disc,
+		)
+		if err != nil {
+			return "", fmt.Errorf("updating username: %w", err)
+		}
+		if n, _ := result.RowsAffected(); n == 1 {
+			return disc, nil
+		}
+	}
+	return "", fmt.Errorf("failed to find unique discriminator for username %q after 10 attempts", newUsername)
 }
 
 // --- Contact operations ---
