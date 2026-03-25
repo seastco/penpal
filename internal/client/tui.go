@@ -184,8 +184,9 @@ func (t TUI) View() tea.View {
 	if t.app.Username != "" {
 		title = fmt.Sprintf("Penpal — %s", t.app.Address())
 	}
-	v := tea.NewView(centeredView(t.currentModel.View().Content))
-	v.AltScreen = true
-	v.WindowTitle = title
-	return v
+	return tea.View{
+		Content:     centeredView(t.currentModel.View().Content),
+		AltScreen:   true,
+		WindowTitle: title,
+	}
 }
