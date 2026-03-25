@@ -54,7 +54,7 @@ func (g *Graph) Route(fromIdx, toIdx int, tier models.ShippingTier, departureTim
 		ready := AddFacilityHours(departure, dwell, senderLoc, express)
 		eta := NextDeliverySlot(ready, senderLoc, express, rng)
 		hop := g.makeHop(fromIdx, eta.UTC())
-		return []models.RouteHop{hop}, 0, nil
+		return []models.RouteHop{hop}, 1, nil
 	}
 
 	path, totalDist, err := g.dijkstra(fromIdx, toIdx)
@@ -81,7 +81,7 @@ func (g *Graph) Path(fromIdx, toIdx int) ([]int, float64, error) {
 		return nil, 0, fmt.Errorf("invalid to city index: %d", toIdx)
 	}
 	if fromIdx == toIdx {
-		return []int{fromIdx}, 0, nil
+		return []int{fromIdx}, 1, nil
 	}
 	path, totalDist, err := g.dijkstra(fromIdx, toIdx)
 	if err != nil {

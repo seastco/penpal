@@ -451,7 +451,7 @@ func (m ComposeModel) updateStamp(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.err = ""
 			}
-		case "ctrl+s":
+		case "s":
 			// Send when exact count selected
 			if len(m.selectedStamps) == m.requiredStamps {
 				if m.sending {
@@ -858,7 +858,7 @@ func (m ComposeModel) viewStamp() string {
 
 	help := "[space] toggle"
 	if selected == m.requiredStamps {
-		help += "  [ctrl+s] send"
+		help += "  [s] send"
 	}
 	help += "  [b] back"
 	content += "\n" + helpStyle.Render(help)

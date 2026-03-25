@@ -132,8 +132,8 @@ func TestRoute_SameCity(t *testing.T) {
 		t.Fatalf("Route: %v", err)
 	}
 
-	if dist != 0 {
-		t.Fatalf("same city distance: got %.0f, expected 0", dist)
+	if dist != 1 {
+		t.Fatalf("same city distance: got %.0f, expected 1", dist)
 	}
 	if len(route) != 1 {
 		t.Fatalf("same city hops: got %d, expected 1", len(route))

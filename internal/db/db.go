@@ -784,8 +784,10 @@ func (d *DB) HasReceivedFrom(ctx context.Context, userID, senderID uuid.UUID) (b
 func (d *DB) GetLastWeeklyStampTime(ctx context.Context, ownerID uuid.UUID) (time.Time, error) {
 	var t time.Time
 	err := d.pool.QueryRowContext(ctx,
-		`SELECT COALESCE(MAX(created_at), '1970-01-01'::timestamptz)
-		 FROM stamps WHERE owner_id = $1 AND earned_via = 'weekly'`,
+		`SELECT COALESCE(
+		     (SELECT MAX(s.created_at) FROM stamps s WHERE s.owner_id = $1 AND s.earned_via = 'weekly'),
+		     (SELECT created_at FROM users WHERE id = $1)
+		 )`,
 		ownerID,
 	).Scan(&t)
 	return t, err
@@ -801,7 +803,8 @@ type WeeklyStampUser struct {
 func (d *DB) GetUsersNeedingWeeklyStamp(ctx context.Context) ([]WeeklyStampUser, error) {
 	rows, err := d.pool.QueryContext(ctx,
 		`SELECT u.id, u.home_city FROM users u
-		 WHERE NOT EXISTS (
+		 WHERE u.created_at <= now() - interval '7 days'
+		 AND NOT EXISTS (
 		     SELECT 1 FROM stamps s
 		     WHERE s.owner_id = u.id
 		     AND s.earned_via = 'weekly'
