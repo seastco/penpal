@@ -11,26 +11,26 @@ import (
 type ShippingTier string
 
 const (
-	TierFirstClass ShippingTier = "first_class"
-	TierPriority   ShippingTier = "priority"
-	TierExpress    ShippingTier = "express"
+	TierStandard ShippingTier = "standard"
+	TierPriority ShippingTier = "priority"
+	TierExpress  ShippingTier = "express"
 )
 
 // AllTiers returns all shipping tiers in order from slowest to fastest.
 func AllTiers() []ShippingTier {
-	return []ShippingTier{TierFirstClass, TierPriority, TierExpress}
+	return []ShippingTier{TierStandard, TierPriority, TierExpress}
 }
 
 // ValidTier returns true if the tier is a recognized shipping tier.
 func ValidTier(t ShippingTier) bool {
-	return t == TierFirstClass || t == TierPriority || t == TierExpress
+	return t == TierStandard || t == TierPriority || t == TierExpress
 }
 
 // TransitSpeedMPH returns the inter-facility transit speed in miles per hour.
-// First Class uses ground trucks, Priority mixes ground+air, Express is primarily air.
+// Standard uses ground trucks, Priority mixes ground+air, Express is primarily air.
 func (t ShippingTier) TransitSpeedMPH() float64 {
 	switch t {
-	case TierFirstClass:
+	case TierStandard:
 		return 50 // ground trucks
 	case TierPriority:
 		return 100 // ground + some air
@@ -46,7 +46,7 @@ func (t ShippingTier) TransitSpeedMPH() float64 {
 // (queuing, sorting, loading onto outgoing transport).
 func (t ShippingTier) DwellMeanHours() float64 {
 	switch t {
-	case TierFirstClass:
+	case TierStandard:
 		return 11.0
 	case TierPriority:
 		return 5.0
@@ -61,7 +61,7 @@ func (t ShippingTier) DwellMeanHours() float64 {
 // Higher values = more variance. Letters run late, never early.
 func (t ShippingTier) DwellSigma() float64 {
 	switch t {
-	case TierFirstClass:
+	case TierStandard:
 		return 0.3
 	case TierPriority:
 		return 0.2
@@ -76,7 +76,7 @@ func (t ShippingTier) DwellSigma() float64 {
 // Not every tracking hop is a facility — some are just transit waypoints.
 func (t ShippingTier) MaxFacilityHops() int {
 	switch t {
-	case TierFirstClass:
+	case TierStandard:
 		return 5
 	case TierPriority:
 		return 4
@@ -91,7 +91,7 @@ func (t ShippingTier) MaxFacilityHops() int {
 // to estimated road/air distance.
 func (t ShippingTier) RoadDetourFactor() float64 {
 	switch t {
-	case TierFirstClass:
+	case TierStandard:
 		return 1.20 // ground routing
 	case TierPriority:
 		return 1.15 // mix
@@ -111,7 +111,7 @@ func (t ShippingTier) IsExpress() bool {
 // CustomsDays returns the base customs delay in days for international mail.
 func (t ShippingTier) CustomsDays() float64 {
 	switch t {
-	case TierFirstClass:
+	case TierStandard:
 		return 10.0
 	case TierPriority:
 		return 4.0
@@ -125,7 +125,7 @@ func (t ShippingTier) CustomsDays() float64 {
 // StampsRequired returns how many stamps this tier costs.
 func (t ShippingTier) StampsRequired() int {
 	switch t {
-	case TierFirstClass:
+	case TierStandard:
 		return 1
 	case TierPriority:
 		return 2
@@ -139,8 +139,8 @@ func (t ShippingTier) StampsRequired() int {
 // DisplayName returns the human-readable tier name.
 func (t ShippingTier) DisplayName() string {
 	switch t {
-	case TierFirstClass:
-		return "First Class"
+	case TierStandard:
+		return "Standard"
 	case TierPriority:
 		return "Priority"
 	case TierExpress:

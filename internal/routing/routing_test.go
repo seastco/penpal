@@ -147,31 +147,31 @@ func TestRoute_ShippingTierTiming(t *testing.T) {
 	// Dwell times use random jitter, so run multiple trials and compare averages
 	// to avoid flaky failures from a single unlucky sample.
 	const trials = 10
-	var expressTotal, priorityTotal, firstClassTotal time.Duration
+	var expressTotal, priorityTotal, standardTotal time.Duration
 
 	for i := 0; i < trials; i++ {
 		now := time.Now()
 		routeExpress, _, _ := g.Route(0, 8, models.TierExpress, now)
 		routePriority, _, _ := g.Route(0, 8, models.TierPriority, now)
-		routeFirstClass, _, _ := g.Route(0, 8, models.TierFirstClass, now)
+		routeStandard, _, _ := g.Route(0, 8, models.TierStandard, now)
 
 		expressTotal += routeExpress[len(routeExpress)-1].ETA.Sub(now)
 		priorityTotal += routePriority[len(routePriority)-1].ETA.Sub(now)
-		firstClassTotal += routeFirstClass[len(routeFirstClass)-1].ETA.Sub(now)
+		standardTotal += routeStandard[len(routeStandard)-1].ETA.Sub(now)
 	}
 
 	expressAvg := expressTotal / trials
 	priorityAvg := priorityTotal / trials
-	firstClassAvg := firstClassTotal / trials
+	standardAvg := standardTotal / trials
 
 	if expressAvg >= priorityAvg {
 		t.Fatalf("express avg (%v) not faster than priority avg (%v)", expressAvg, priorityAvg)
 	}
-	if priorityAvg >= firstClassAvg {
-		t.Fatalf("priority avg (%v) not faster than first class avg (%v)", priorityAvg, firstClassAvg)
+	if priorityAvg >= standardAvg {
+		t.Fatalf("priority avg (%v) not faster than standard avg (%v)", priorityAvg, standardAvg)
 	}
 
-	t.Logf("Express: %v, Priority: %v, First Class: %v", expressAvg, priorityAvg, firstClassAvg)
+	t.Logf("Express: %v, Priority: %v, Standard: %v", expressAvg, priorityAvg, standardAvg)
 }
 
 func TestSearchCities(t *testing.T) {

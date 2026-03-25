@@ -339,7 +339,7 @@ func TestHandleSendLetter_NotContact(t *testing.T) {
 	env := makeEnvelope(protocol.MsgSendLetter, protocol.SendLetterRequest{
 		RecipientID:   recipient.ID,
 		EncryptedBody: []byte("hello"),
-		ShippingTier:  "first_class",
+		ShippingTier:  "standard",
 		StampIDs:      []uuid.UUID{uuid.New()},
 	})
 
@@ -375,7 +375,7 @@ func TestHandleSendLetter_RateLimited(t *testing.T) {
 	env := makeEnvelope(protocol.MsgSendLetter, protocol.SendLetterRequest{
 		RecipientID:   recipient.ID,
 		EncryptedBody: []byte("hello"),
-		ShippingTier:  "first_class",
+		ShippingTier:  "standard",
 		StampIDs:      []uuid.UUID{uuid.New()},
 	})
 
@@ -411,7 +411,7 @@ func TestHandleSendLetter_Blocked(t *testing.T) {
 	env := makeEnvelope(protocol.MsgSendLetter, protocol.SendLetterRequest{
 		RecipientID:   recipient.ID,
 		EncryptedBody: []byte("hello"),
-		ShippingTier:  "first_class",
+		ShippingTier:  "standard",
 		StampIDs:      []uuid.UUID{uuid.New()},
 	})
 
@@ -446,7 +446,7 @@ func TestHandleSendLetter_Success(t *testing.T) {
 	env := makeEnvelope(protocol.MsgSendLetter, protocol.SendLetterRequest{
 		RecipientID:   recipient.ID,
 		EncryptedBody: []byte("hello"),
-		ShippingTier:  "first_class",
+		ShippingTier:  "standard",
 		StampIDs:      []uuid.UUID{uuid.New()},
 	})
 

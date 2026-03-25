@@ -60,12 +60,12 @@ When you send a letter, it travels from your city to your friend's
 city along a real route, hopping between relay stations. You can track
 its journey as it moves. There are three shipping tiers:
 
-  First Class  ~50 mph by ground truck     1 stamp
+  Standard     ~50 mph by ground truck     1 stamp
   Priority     ~100 mph ground + air       2 stamps
   Express      ~400 mph by air             3 stamps
 
-A letter from New York to Los Angeles takes about 5 days by First
-Class, 2 days by Priority, or half a day by Express.
+A letter from New York to Los Angeles takes about 5 days by Standard,
+2 days by Priority, or half a day by Express.
 
 YOUR STAMPS
 

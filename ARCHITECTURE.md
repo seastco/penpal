@@ -90,7 +90,7 @@ Shipping tier speeds:
 
 | Tier | Speed | Handling |
 |---|---|---|
-| First Class | 700 mi/day | 2 days |
+| Standard | 700 mi/day | 2 days |
 | Priority | 1,500 mi/day | 1 day |
 | Express | 2,000 mi/day | 0.5 days |
 
