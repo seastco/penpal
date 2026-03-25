@@ -195,7 +195,7 @@ func main() {
 	// Also clean old seed messages sent TO seastco with fake bodies
 	db.ExecContext(ctx, "DELETE FROM messages WHERE encrypted_body = '\\x00deadbeef'")
 
-	tiers := []string{"first_class", "priority", "express"}
+	tiers := []string{"standard", "priority", "express"}
 
 	type peer struct {
 		id   uuid.UUID

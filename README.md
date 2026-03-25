@@ -8,7 +8,7 @@ penpal is a terminal messaging app where your letters travel across the United S
 
 - **Real transit** — letters travel between ~30,000 US cities at realistic speeds
 - **Live tracking** — watch your letter hop from city to city
-- **Real delivery times** — letters travel at First Class speed, arriving in days not milliseconds
+- **Real delivery times** — letters travel at Standard speed, arriving in days not milliseconds
 - **Stamp collecting** — earn common, state, and rare stamps as you send and receive
 - **End-to-end encrypted** — the server never sees your messages ([how it works](SECURITY.md))
 - **12-word recovery phrase** — your account lives in a mnemonic, recoverable on any device

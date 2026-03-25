@@ -160,7 +160,7 @@ func lastWeekday(year int, month time.Month, wd time.Weekday) int {
 // --- Business Day Logic ---
 
 // IsBusinessDay returns true if the given date is a mail processing day.
-// First Class / Priority: Mon-Sat, no federal holidays.
+// Standard / Priority: Mon-Sat, no federal holidays.
 // Express: every day except Christmas and New Year's.
 func IsBusinessDay(t time.Time, express bool) bool {
 	if express {
@@ -208,7 +208,7 @@ func NextProcessingStart(sendTime time.Time, loc *time.Location, express bool) t
 
 // Facility operating hours
 const (
-	facilityOpenStd   = 6  // 6AM for First Class / Priority
+	facilityOpenStd   = 6  // 6AM for Standard / Priority
 	facilityCloseStd  = 22 // 10PM
 	facilityOpenExpr  = 5  // 5AM for Express
 	facilityCloseExpr = 23 // 11PM
@@ -281,7 +281,7 @@ func AddFacilityHours(start time.Time, hours float64, loc *time.Location, expres
 }
 
 // NextDeliverySlot returns a random time within the next delivery window.
-// First Class/Priority: 9AM-5PM Mon-Sat. Express: 9AM-7PM every day.
+// Standard/Priority: 9AM-5PM Mon-Sat. Express: 9AM-7PM every day.
 func NextDeliverySlot(readyTime time.Time, loc *time.Location, express bool, rng *rand.Rand) time.Time {
 	startHr, endHr := deliveryStartStd, deliveryEndStd
 	if express {
@@ -337,7 +337,7 @@ func DistanceToZone(dist float64) int {
 }
 
 // zoneDays maps [zone-1] → business days for each tier.
-var zoneDaysFirstClass = [8]int{2, 2, 3, 3, 4, 4, 5, 5}
+var zoneDaysStandard = [8]int{2, 2, 3, 3, 4, 4, 5, 5}
 var zoneDaysPriority = [8]int{1, 2, 2, 2, 3, 3, 3, 3}
 var zoneDaysExpress = [8]int{1, 1, 1, 1, 2, 2, 2, 2}
 
@@ -346,14 +346,14 @@ func EstimateBusinessDays(dist float64, tier models.ShippingTier) int {
 	zone := DistanceToZone(dist)
 	idx := zone - 1
 	switch tier {
-	case models.TierFirstClass:
-		return zoneDaysFirstClass[idx]
+	case models.TierStandard:
+		return zoneDaysStandard[idx]
 	case models.TierPriority:
 		return zoneDaysPriority[idx]
 	case models.TierExpress:
 		return zoneDaysExpress[idx]
 	default:
-		return zoneDaysFirstClass[idx]
+		return zoneDaysStandard[idx]
 	}
 }
 

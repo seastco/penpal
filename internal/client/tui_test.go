@@ -406,16 +406,16 @@ func TestCompose_PrefilledRecipient(t *testing.T) {
 	}
 }
 
-func TestCompose_ShippingLockedToFirstClass(t *testing.T) {
+func TestCompose_ShippingLockedToStandard(t *testing.T) {
 	m := NewComposeModel(testApp())
 	m.step = 3
 
-	// Default is first class (idx=0)
+	// Default is standard (idx=0)
 	if m.shippingIdx != 0 {
-		t.Errorf("default shipping should be 0 (first class), got %d", m.shippingIdx)
+		t.Errorf("default shipping should be 0 (standard), got %d", m.shippingIdx)
 	}
 
-	// Arrow keys should not change tier (locked to first class)
+	// Arrow keys should not change tier (locked to standard)
 	updated, _ := m.Update(keyMsg("down"))
 	cm := updated.(ComposeModel)
 	if cm.shippingIdx != 0 {
@@ -447,7 +447,7 @@ func TestCompose_ShippingOptions(t *testing.T) {
 	if len(opts) != 3 {
 		t.Fatalf("expected 3 shipping options, got %d", len(opts))
 	}
-	names := []string{"First Class", "Priority", "Express"}
+	names := []string{"Standard", "Priority", "Express"}
 	for i, opt := range opts {
 		if opt.name != names[i] {
 			t.Errorf("option %d: expected %s, got %s", i, names[i], opt.name)
