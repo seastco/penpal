@@ -1006,25 +1006,23 @@ func (c *Client) handleGetShipping(ctx context.Context, env protocol.Envelope) e
 	// Determine if this is an international route
 	isIntl := c.server.graph.Cities[fromIdx].EffectiveCountry() != c.server.graph.Cities[toIdx].EffectiveCountry()
 
-	// Compute path once — Dijkstra result is tier-independent.
-	path, dist, err := c.server.graph.Path(fromIdx, toIdx)
-	if err != nil {
-		return fmt.Errorf("route computation failed: %w", err)
-	}
-
-	senderLoc := c.server.graph.Cities[fromIdx].Timezone()
 	now := time.Now()
 
 	var options []protocol.ShippingOption
 	for _, tier := range models.AllTiers() {
-		transitDays := routing.TransitDays(dist, tier, isIntl)
-		estDelivery := routing.EstimateDelivery(dist, tier, now, senderLoc)
+		route, dist, err := c.server.graph.Route(fromIdx, toIdx, tier, now, isIntl)
+		if err != nil {
+			return fmt.Errorf("route computation failed: %w", err)
+		}
+		estDelivery := route[len(route)-1].ETA
+		duration := estDelivery.Sub(now)
+		transitDays := duration.Hours() / 24
 		options = append(options, protocol.ShippingOption{
 			Tier:        string(tier),
 			Days:        transitDays,
 			EstDelivery: estDelivery,
 			Distance:    dist,
-			Hops:        len(path),
+			Hops:        len(route),
 		})
 	}
 

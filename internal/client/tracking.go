@@ -109,12 +109,12 @@ func (m TrackingModel) View() string {
 		node := mutedStyle.Render("○")
 		if now.After(hop.ETA) && isCurrentHop(m.tracking.Route, hop, now) {
 			node = selectedStyle.Render("◉")
-			timeStr = hop.ETA.Format("01/02  15:04")
+			timeStr = hop.ETA.Local().Format("01/02  15:04")
 		} else if now.After(hop.ETA) {
 			node = successStyle.Render("●")
-			timeStr = hop.ETA.Format("01/02  15:04")
+			timeStr = hop.ETA.Local().Format("01/02  15:04")
 		} else {
-			timeStr = hop.ETA.Format("01/02 ~15:04")
+			timeStr = hop.ETA.Local().Format("01/02 ~15:04")
 		}
 		content += fmt.Sprintf("%s %s  %s\n", node, mutedStyle.Render(timeStr), hop.City)
 	}
