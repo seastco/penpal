@@ -55,6 +55,7 @@ func NewSettingsModel(app *AppState) SettingsModel {
 	ui := textinput.New()
 	ui.Placeholder = "new username"
 	ui.CharLimit = 32
+	ui.Validate = noDigits
 
 	// Find current theme index
 	themeIdx := 0
@@ -465,4 +466,14 @@ func (m SettingsModel) viewTheme() string {
 	)
 
 	return screenBox().Render(content)
+}
+
+// noDigits is a textinput.ValidateFunc that rejects any input containing digits.
+func noDigits(s string) error {
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			return fmt.Errorf("digits not allowed")
+		}
+	}
+	return nil
 }

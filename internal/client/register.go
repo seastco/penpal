@@ -60,6 +60,7 @@ func NewRegisterModel(app *AppState) RegisterModel {
 	ti := textinput.New()
 	ti.Placeholder = "username"
 	ti.CharLimit = 32
+	ti.Validate = noDigits
 	ti.Width = contentWidth() - 8
 
 	ci := textinput.New()

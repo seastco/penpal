@@ -314,6 +314,9 @@ func (c *Client) handleRegister(ctx context.Context, env protocol.Envelope) erro
 	if req.Username == "penpal" {
 		return fmt.Errorf("username 'penpal' is reserved")
 	}
+	if containsDigit(req.Username) {
+		return fmt.Errorf("username cannot contain digits")
+	}
 	if len(req.PublicKey) != ed25519.PublicKeySize {
 		return fmt.Errorf("invalid public key size")
 	}
@@ -1076,6 +1079,9 @@ func (c *Client) handleUpdateUsername(ctx context.Context, env protocol.Envelope
 	if username == "penpal" {
 		return fmt.Errorf("username 'penpal' is reserved")
 	}
+	if containsDigit(username) {
+		return fmt.Errorf("username cannot contain digits")
+	}
 	if c.userID == SystemUserID {
 		return fmt.Errorf("cannot change system user username")
 	}
@@ -1104,6 +1110,16 @@ func (c *Client) handleUpdateUsername(ctx context.Context, env protocol.Envelope
 		Discriminator: newDisc,
 	})
 	return nil
+}
+
+// containsDigit returns true if the string contains any digit character.
+func containsDigit(s string) bool {
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			return true
+		}
+	}
+	return false
 }
 
 // validCoords returns true if lat/lng are finite and within Earth bounds.
