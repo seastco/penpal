@@ -118,6 +118,26 @@ func TestHandleRegister_InvalidUsername_Empty(t *testing.T) {
 	}
 }
 
+func TestHandleRegister_InvalidUsername_Digits(t *testing.T) {
+	store := newMockStore()
+	s := testServer(t, store)
+	c := testClient(s)
+
+	pub, _, _ := ed25519.GenerateKey(nil)
+	env := makeEnvelope(protocol.MsgRegister, protocol.RegisterRequest{
+		Username:  "alice123",
+		PublicKey: pub,
+		HomeCity:  "Boston, MA",
+		HomeLat:   42.36,
+		HomeLng:   -71.06,
+	})
+
+	err := c.handleMessage(context.Background(), env)
+	if err == nil {
+		t.Fatal("expected error for username with digits")
+	}
+}
+
 func TestHandleRegister_InvalidPublicKey(t *testing.T) {
 	store := newMockStore()
 	s := testServer(t, store)
@@ -752,6 +772,31 @@ func TestHandleUpdateUsername_EmptyName(t *testing.T) {
 	err := c.handleMessage(context.Background(), env)
 	if err == nil {
 		t.Fatal("expected error for empty username")
+	}
+}
+
+func TestHandleUpdateUsername_Digits(t *testing.T) {
+	store := newMockStore()
+	s := testServer(t, store)
+	c := testClient(s)
+
+	user := &models.User{
+		ID: uuid.New(), Username: "alice", Discriminator: "0001",
+		PublicKey: []byte("key"), HomeCity: "Boston, MA",
+		HomeLat: 42.36, HomeLng: -71.06,
+		LastActive: time.Now(), CreatedAt: time.Now(),
+	}
+	store.addUser(user)
+	c.userID = user.ID
+	s.hub.Register(c)
+
+	env := makeEnvelope(protocol.MsgUpdateUsername, protocol.UpdateUsernameRequest{
+		Username: "bob123",
+	})
+
+	err := c.handleMessage(context.Background(), env)
+	if err == nil {
+		t.Fatal("expected error for username with digits")
 	}
 }
 
