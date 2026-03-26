@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 	pencrypto "github.com/seastco/penpal/internal/crypto"
 	"github.com/seastco/penpal/internal/protocol"
 )
@@ -55,7 +55,6 @@ func NewSettingsModel(app *AppState) SettingsModel {
 	ui := textinput.New()
 	ui.Placeholder = "new username"
 	ui.CharLimit = 32
-	ui.Validate = noDigits
 
 	// Find current theme index
 	themeIdx := 0
@@ -91,7 +90,7 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m SettingsModel) updateMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "up", "k":
 			if m.cursor > 0 {
@@ -134,7 +133,7 @@ func (m SettingsModel) updateMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m SettingsModel) updateCity(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "enter":
 			if len(m.cityResults) > 0 && m.cityIdx < len(m.cityResults) {
@@ -217,7 +216,7 @@ func (m SettingsModel) updateCity(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m SettingsModel) updateUsername(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "enter":
 			username := strings.ToLower(strings.TrimSpace(m.usernameInput.Value()))
@@ -255,6 +254,10 @@ func (m SettingsModel) updateUsername(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		default:
+			// Block digit keystrokes
+			if len(msg.Text) == 1 && msg.Text[0] >= '0' && msg.Text[0] <= '9' {
+				return m, nil
+			}
 			var cmd tea.Cmd
 			m.usernameInput, cmd = m.usernameInput.Update(msg)
 			return m, cmd
@@ -267,7 +270,7 @@ func (m SettingsModel) updateUsername(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.mode = settingsMenu
 		m.usernameInput.Blur()
 		m.usernameErr = ""
-		return m, tea.SetWindowTitle(fmt.Sprintf("Penpal — %s", m.app.Address()))
+		return m, nil
 	case errMsg:
 		m.usernameErr = msg.err.Error()
 	}
@@ -276,7 +279,7 @@ func (m SettingsModel) updateUsername(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m SettingsModel) updateTheme(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "up", "k":
 			if m.themeIdx > 0 {
@@ -314,16 +317,16 @@ func (m SettingsModel) updateTheme(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m SettingsModel) View() string {
+func (m SettingsModel) View() tea.View {
 	switch m.mode {
 	case settingsCity:
-		return m.viewCity()
+		return tea.NewView(m.viewCity())
 	case settingsTheme:
-		return m.viewTheme()
+		return tea.NewView(m.viewTheme())
 	case settingsUsername:
-		return m.viewUsername()
+		return tea.NewView(m.viewUsername())
 	default:
-		return m.viewMenu()
+		return tea.NewView(m.viewMenu())
 	}
 }
 
@@ -466,14 +469,4 @@ func (m SettingsModel) viewTheme() string {
 	)
 
 	return screenBox().Render(content)
-}
-
-// noDigits is a textinput.ValidateFunc that rejects any input containing digits.
-func noDigits(s string) error {
-	for _, r := range s {
-		if r >= '0' && r <= '9' {
-			return fmt.Errorf("digits not allowed")
-		}
-	}
-	return nil
 }

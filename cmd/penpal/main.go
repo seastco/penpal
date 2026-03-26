@@ -16,7 +16,7 @@ import (
 
 	_ "time/tzdata" // embed timezone database for systems without it
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/google/uuid"
 	"github.com/seastco/penpal/internal/client"
 	pencrypto "github.com/seastco/penpal/internal/crypto"
@@ -107,7 +107,7 @@ func main() {
 
 	// Run TUI
 	tui := client.NewTUI(app)
-	p := tea.NewProgram(tui, tea.WithAltScreen())
+	p := tea.NewProgram(tui)
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)

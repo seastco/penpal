@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textarea"
+	"charm.land/bubbles/v2/textinput"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/google/uuid"
 	pencrypto "github.com/seastco/penpal/internal/crypto"
 	"github.com/seastco/penpal/internal/models"
@@ -63,7 +63,7 @@ func NewComposeModel(app *AppState) ComposeModel {
 	ri.Placeholder = "contact name"
 	ri.Focus()
 	ri.CharLimit = 32
-	ri.Width = contentWidth() - 8
+	ri.SetWidth(contentWidth() - 8)
 
 	ta := textarea.New()
 	ta.Placeholder = "Write your letter..."
@@ -98,7 +98,7 @@ func NewComposeModelTo(app *AppState, recipientID uuid.UUID, recipientName strin
 		m.originalMsgID = originalMsgID
 		m.originalSender = originalSender
 
-		vp := viewport.New(contentWidth(), viewportHeight()-2)
+		vp := viewport.New(viewport.WithWidth(contentWidth()), viewport.WithHeight(viewportHeight()-2))
 		vp.KeyMap = viewport.DefaultKeyMap()
 		body, ok := app.DecryptedBodies[originalMsgID]
 		if !ok {
@@ -138,10 +138,10 @@ func (m ComposeModel) Init() tea.Cmd {
 func (m ComposeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if _, ok := msg.(tea.WindowSizeMsg); ok {
 		m.bodyArea.SetWidth(contentWidth())
-		m.recipientInput.Width = contentWidth() - 8
+		m.recipientInput.SetWidth(contentWidth() - 8)
 		if m.originalMsgID != uuid.Nil {
-			m.originalViewport.Width = contentWidth()
-			m.originalViewport.Height = viewportHeight() - 2
+			m.originalViewport.SetWidth(contentWidth())
+			m.originalViewport.SetHeight(viewportHeight() - 2)
 		}
 	}
 
@@ -169,7 +169,7 @@ func (m ComposeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m ComposeModel) updateRecipient(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		// Still loading — only allow back
 		if m.contacts == nil {
 			if msg.String() == "b" || msg.String() == "esc" {
@@ -279,7 +279,7 @@ func (m ComposeModel) updateBody(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// When showing the original letter, only handle toggle-back and scroll keys
 	if m.showingOriginal {
 		switch msg := msg.(type) {
-		case tea.KeyMsg:
+		case tea.KeyPressMsg:
 			switch msg.String() {
 			case "ctrl+r":
 				m.showingOriginal = false
@@ -300,7 +300,7 @@ func (m ComposeModel) updateBody(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		m.draftRestored = false
 		switch msg.String() {
 		case "ctrl+r":
@@ -364,7 +364,7 @@ type composeStampsLoadedMsg struct {
 
 func (m ComposeModel) updateShipping(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "up", "k":
 			if m.shippingIdx > 0 {
@@ -429,7 +429,7 @@ func filterAndSortStamps(stamps []models.Stamp) []models.Stamp {
 
 func (m ComposeModel) updateStamp(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "up", "k":
 			if m.stampCursor > 0 {
@@ -558,18 +558,18 @@ func (m *ComposeModel) loadDraftIfExists() {
 	m.draftRestored = true
 }
 
-func (m ComposeModel) View() string {
+func (m ComposeModel) View() tea.View {
 	switch m.step {
 	case 0:
-		return m.viewRecipient()
+		return tea.NewView(m.viewRecipient())
 	case 1:
-		return m.viewBody()
+		return tea.NewView(m.viewBody())
 	case 2:
-		return m.viewShipping()
+		return tea.NewView(m.viewShipping())
 	case 3:
-		return m.viewStamp()
+		return tea.NewView(m.viewStamp())
 	}
-	return ""
+	return tea.NewView("")
 }
 
 func (m ComposeModel) viewRecipient() string {

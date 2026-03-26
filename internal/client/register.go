@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 	pencrypto "github.com/seastco/penpal/internal/crypto"
 	"github.com/seastco/penpal/internal/models"
 )
@@ -24,6 +24,9 @@ type RegisterModel struct {
 	cityInput   textinput.Model
 	cityResults []cityMatch
 	cityIdx     int
+
+	// Clipboard
+	copied bool
 
 	// Choice / recovery
 	choiceIdx    int // 0=register, 1=recover
@@ -60,18 +63,17 @@ func NewRegisterModel(app *AppState) RegisterModel {
 	ti := textinput.New()
 	ti.Placeholder = "username"
 	ti.CharLimit = 32
-	ti.Validate = noDigits
-	ti.Width = contentWidth() - 8
+	ti.SetWidth(contentWidth() - 8)
 
 	ci := textinput.New()
 	ci.Placeholder = "city name"
 	ci.CharLimit = 50
-	ci.Width = contentWidth() - 8
+	ci.SetWidth(contentWidth() - 8)
 
 	ri := textinput.New()
 	ri.Placeholder = "word1 word2 word3 ... word12"
 	ri.CharLimit = 200
-	ri.Width = contentWidth() - 8
+	ri.SetWidth(contentWidth() - 8)
 
 	return RegisterModel{
 		app:          app,
@@ -104,7 +106,7 @@ func (m RegisterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m RegisterModel) updateChoice(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "up", "k":
 			m.choiceIdx = 0
@@ -128,7 +130,7 @@ func (m RegisterModel) updateChoice(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m RegisterModel) updateUsername(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "enter":
 			username := strings.ToLower(strings.TrimSpace(m.input.Value()))
@@ -167,6 +169,11 @@ func (m RegisterModel) updateUsername(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "ctrl+c":
 			return m, tea.Quit
+		default:
+			// Block digit keystrokes
+			if len(msg.Text) == 1 && msg.Text[0] >= '0' && msg.Text[0] <= '9' {
+				return m, nil
+			}
 		}
 	}
 	var cmd tea.Cmd
@@ -176,12 +183,15 @@ func (m RegisterModel) updateUsername(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m RegisterModel) updateSeed(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "enter":
 			m.step = 3
 			m.cityInput.Focus()
 			return m, textinput.Blink
+		case "c":
+			m.copied = true
+			return m, tea.SetClipboard(m.mnemonic)
 		case "ctrl+c":
 			return m, tea.Quit
 		}
@@ -191,7 +201,7 @@ func (m RegisterModel) updateSeed(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m RegisterModel) updateCity(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "enter":
 			if len(m.cityResults) > 0 && m.cityIdx < len(m.cityResults) {
@@ -285,7 +295,7 @@ func (m RegisterModel) updateCity(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m RegisterModel) updateRecover(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "enter":
 			mnemonic := strings.TrimSpace(m.recoverInput.Value())
@@ -349,20 +359,20 @@ func (m RegisterModel) updateRecover(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m RegisterModel) View() string {
+func (m RegisterModel) View() tea.View {
 	switch m.step {
 	case 0:
-		return m.viewChoice()
+		return tea.NewView(m.viewChoice())
 	case 1:
-		return m.viewUsername()
+		return tea.NewView(m.viewUsername())
 	case 2:
-		return m.viewSeed()
+		return tea.NewView(m.viewSeed())
 	case 3:
-		return m.viewCity()
+		return tea.NewView(m.viewCity())
 	case 4:
-		return m.viewRecover()
+		return tea.NewView(m.viewRecover())
 	}
-	return ""
+	return tea.NewView("")
 }
 
 func (m RegisterModel) viewChoice() string {
@@ -411,7 +421,12 @@ func (m RegisterModel) viewSeed() string {
 			body += "\n"
 		}
 	}
-	body += "\n" + helpStyle.Render("[enter] I've written these down")
+	if m.copied {
+		body += "\n" + successStyle.Render("copied to clipboard!")
+		body += "\n" + helpStyle.Render("[enter] continue")
+	} else {
+		body += "\n" + helpStyle.Render("[c] copy · [enter] I've written these down")
+	}
 
 	content := title + "\n" + divider(contentWidth()) + "\n" + body
 	return screenBox().Render(content)

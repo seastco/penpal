@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
 	"github.com/google/uuid"
 	"github.com/seastco/penpal/internal/models"
 	"github.com/seastco/penpal/internal/protocol"
@@ -62,7 +62,7 @@ func (m TrackingModel) loadTracking() tea.Cmd {
 
 func (m TrackingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "b", "esc":
 			return m, func() tea.Msg { return switchScreenMsg{screen: m.origin} }
@@ -77,18 +77,18 @@ func (m TrackingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m TrackingModel) View() string {
+func (m TrackingModel) View() tea.View {
 	title := titleStyle.Render(fmt.Sprintf("TRACKING %s", m.label))
 	header := title + "\n" + divider(contentWidth()) + "\n"
 
 	if m.loading {
-		return emptyScreenView(header, "", "[b] back")
+		return tea.NewView(emptyScreenView(header, "", "[b] back"))
 	}
 	if m.err != "" {
-		return emptyScreenView(header, "\n"+errorStyle.Render(m.err), "[b] back")
+		return tea.NewView(emptyScreenView(header, "\n"+errorStyle.Render(m.err), "[b] back"))
 	}
 	if m.tracking == nil {
-		return emptyScreenView(header, "", "[b] back")
+		return tea.NewView(emptyScreenView(header, "", "[b] back"))
 	}
 
 	content := header
@@ -124,7 +124,7 @@ func (m TrackingModel) View() string {
 			m.tracking.ShippingTier, m.tracking.Distance)))
 
 	content += "\n" + helpStyle.Render("[b] back")
-	return screenBox().Render(content)
+	return tea.NewView(screenBox().Render(content))
 }
 
 func isCurrentHop(route []models.RouteHop, hop models.RouteHop, now time.Time) bool {
@@ -149,7 +149,7 @@ type InTransitModel struct {
 }
 
 func NewInTransitModel(app *AppState) InTransitModel {
-	vp := viewport.New(contentWidth(), viewportHeight())
+	vp := viewport.New(viewport.WithWidth(contentWidth()), viewport.WithHeight(viewportHeight()))
 	vp.KeyMap = viewport.KeyMap{}
 	m := InTransitModel{app: app, loading: true, viewport: vp}
 	return m.syncViewport()
@@ -171,7 +171,7 @@ func (m InTransitModel) Init() tea.Cmd {
 
 func (m InTransitModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "up", "k":
 			if m.cursor > 0 {
@@ -196,7 +196,7 @@ func (m InTransitModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg { return switchScreenMsg{screen: ScreenHome} }
 		}
 	case tea.WindowSizeMsg:
-		m.viewport.Width = contentWidth()
+		m.viewport.SetWidth(contentWidth())
 	case inTransitLoadedMsg:
 		m.items = msg.items
 		m.loading = false
@@ -212,7 +212,7 @@ const linesPerTransitItem = 5
 
 func (m InTransitModel) syncViewport() InTransitModel {
 	bh := adaptiveBoxHeight(len(m.items)*linesPerTransitItem, 6)
-	m.viewport.Height = bh - 6
+	m.viewport.SetHeight(bh - 6)
 
 	var content string
 	if m.err != "" {
@@ -265,37 +265,37 @@ func (m InTransitModel) syncViewport() InTransitModel {
 		content = b.String()
 	}
 
-	yOffset := m.viewport.YOffset
+	yOffset := m.viewport.YOffset()
 	m.viewport.SetContent(content)
 	if len(m.items) > 0 {
 		m.viewport.SetYOffset(yOffset)
 		cursorLine := m.cursor * linesPerTransitItem
-		if cursorLine < m.viewport.YOffset {
+		if cursorLine < m.viewport.YOffset() {
 			m.viewport.SetYOffset(cursorLine)
-		} else if cursorLine+linesPerTransitItem > m.viewport.YOffset+m.viewport.Height {
-			m.viewport.SetYOffset(cursorLine + linesPerTransitItem - m.viewport.Height)
+		} else if cursorLine+linesPerTransitItem > m.viewport.YOffset()+m.viewport.Height() {
+			m.viewport.SetYOffset(cursorLine + linesPerTransitItem - m.viewport.Height())
 		}
 	}
 	return m
 }
 
-func (m InTransitModel) View() string {
+func (m InTransitModel) View() tea.View {
 	title := titleStyle.Render("IN TRANSIT")
 	header := title + "\n" + divider(contentWidth()) + "\n"
 	if m.loading {
-		return emptyScreenView(header, "", "[b] back")
+		return tea.NewView(emptyScreenView(header, "", "[b] back"))
 	}
 	if len(m.items) == 0 {
 		body := "\n" + mutedStyle.Render("no letters in transit")
 		if m.err != "" {
 			body = "\n" + errorStyle.Render(m.err)
 		}
-		return emptyScreenView(header, body, "[b] back")
+		return tea.NewView(emptyScreenView(header, body, "[b] back"))
 	}
 	m = m.syncViewport()
 	bh := adaptiveBoxHeight(len(m.items)*linesPerTransitItem, 6)
 	footer := "\n\n" + helpStyle.Render("[enter] view  [b] back")
-	return screenBox().Height(bh).Render(header + m.viewport.View() + footer)
+	return tea.NewView(screenBox().Height(bh).Render(header + m.viewport.View() + footer))
 }
 
 type trackLetterMsg struct {
@@ -318,7 +318,7 @@ type SentModel struct {
 }
 
 func NewSentModel(app *AppState) SentModel {
-	vp := viewport.New(contentWidth(), viewportHeight())
+	vp := viewport.New(viewport.WithWidth(contentWidth()), viewport.WithHeight(viewportHeight()))
 	vp.KeyMap = viewport.KeyMap{}
 	m := SentModel{app: app, loading: true, viewport: vp}
 	return m.syncViewport()
@@ -356,7 +356,7 @@ func (m SentModel) maybePrefetch() tea.Cmd {
 
 func (m SentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if m.confirmDelete {
 			if msg.String() == "y" && m.cursor < len(m.items) {
 				item := m.items[m.cursor]
@@ -407,7 +407,7 @@ func (m SentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg { return switchScreenMsg{screen: ScreenHome} }
 		}
 	case tea.WindowSizeMsg:
-		m.viewport.Width = contentWidth()
+		m.viewport.SetWidth(contentWidth())
 	case sentLoadedMsg:
 		if msg.append {
 			m.items = append(m.items, msg.items...)
@@ -431,7 +431,7 @@ func (m SentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m SentModel) syncViewport() SentModel {
 	bh := adaptiveBoxHeight(len(m.items), 6)
-	m.viewport.Height = bh - 6
+	m.viewport.SetHeight(bh - 6)
 
 	var content string
 	if m.err != "" {
@@ -460,31 +460,31 @@ func (m SentModel) syncViewport() SentModel {
 		content = b.String()
 	}
 
-	yOffset := m.viewport.YOffset
+	yOffset := m.viewport.YOffset()
 	m.viewport.SetContent(content)
 	if len(m.items) > 0 {
 		m.viewport.SetYOffset(yOffset)
-		if m.cursor < m.viewport.YOffset {
+		if m.cursor < m.viewport.YOffset() {
 			m.viewport.SetYOffset(m.cursor)
-		} else if m.cursor >= m.viewport.YOffset+m.viewport.Height {
-			m.viewport.SetYOffset(m.cursor - m.viewport.Height + 1)
+		} else if m.cursor >= m.viewport.YOffset()+m.viewport.Height() {
+			m.viewport.SetYOffset(m.cursor - m.viewport.Height() + 1)
 		}
 	}
 	return m
 }
 
-func (m SentModel) View() string {
+func (m SentModel) View() tea.View {
 	title := titleStyle.Render("SENT")
 	header := title + "\n" + divider(contentWidth()) + "\n"
 	if m.loading {
-		return emptyScreenView(header, "", "[b] back")
+		return tea.NewView(emptyScreenView(header, "", "[b] back"))
 	}
 	if len(m.items) == 0 {
 		body := "\n" + mutedStyle.Render("no letters yet")
 		if m.err != "" {
 			body = "\n" + errorStyle.Render(m.err)
 		}
-		return emptyScreenView(header, body, "[b] back")
+		return tea.NewView(emptyScreenView(header, body, "[b] back"))
 	}
 	m = m.syncViewport()
 	bh := adaptiveBoxHeight(len(m.items), 6)
@@ -495,5 +495,5 @@ func (m SentModel) View() string {
 	} else {
 		footer = "\n\n" + helpStyle.Render("[enter] view  [d] delete  [b] back")
 	}
-	return screenBox().Height(bh).Render(header + m.viewport.View() + footer)
+	return tea.NewView(screenBox().Height(bh).Render(header + m.viewport.View() + footer))
 }

@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"image/color"
+
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/seastco/penpal/internal/models"
 	"github.com/seastco/penpal/internal/protocol"
 )
@@ -131,7 +133,7 @@ type StampsModel struct {
 }
 
 func NewStampsModel(app *AppState) StampsModel {
-	vp := viewport.New(contentWidth(), viewportHeight())
+	vp := viewport.New(viewport.WithWidth(contentWidth()), viewport.WithHeight(viewportHeight()))
 	vp.KeyMap = viewport.KeyMap{}
 	m := StampsModel{app: app, loading: true, viewport: vp}
 	return m
@@ -153,7 +155,7 @@ func (m StampsModel) Init() tea.Cmd {
 
 func (m StampsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if m.detailMode {
 			switch msg.String() {
 			case "b", "esc":
@@ -217,8 +219,8 @@ func (m StampsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg { return switchScreenMsg{screen: ScreenHome} }
 		}
 	case tea.WindowSizeMsg:
-		m.viewport.Width = contentWidth()
-		m.viewport.Height = viewportHeight()
+		m.viewport.SetWidth(contentWidth())
+		m.viewport.SetHeight(viewportHeight())
 	case stampsLoadedMsg:
 		m.stamps = msg.stamps
 		m.loading = false
@@ -401,7 +403,7 @@ func (m StampsModel) syncViewport() StampsModel {
 		content = m.renderGrid()
 	}
 
-	yOffset := m.viewport.YOffset
+	yOffset := m.viewport.YOffset()
 	m.viewport.SetContent(content)
 	if len(m.allSlots) > 0 && !m.detailMode {
 		m.viewport.SetYOffset(yOffset)
@@ -411,10 +413,10 @@ func (m StampsModel) syncViewport() StampsModel {
 		if scrollTo > 0 && m.isCategoryFirstRow() {
 			scrollTo-- // show category header
 		}
-		if scrollTo < m.viewport.YOffset {
+		if scrollTo < m.viewport.YOffset() {
 			m.viewport.SetYOffset(scrollTo)
-		} else if cursorRow+7 >= m.viewport.YOffset+m.viewport.Height {
-			m.viewport.SetYOffset(cursorRow + 7 - m.viewport.Height + 1)
+		} else if cursorRow+7 >= m.viewport.YOffset()+m.viewport.Height() {
+			m.viewport.SetYOffset(cursorRow + 7 - m.viewport.Height() + 1)
 		}
 	}
 	return m
@@ -566,7 +568,7 @@ func rareDescription(key string) string {
 	}
 }
 
-func (m StampsModel) View() string {
+func (m StampsModel) View() tea.View {
 	m = m.syncViewport()
 
 	title := headerLine(
@@ -580,7 +582,7 @@ func (m StampsModel) View() string {
 	} else {
 		footer = "\n\n" + helpStyle.Render("[arrows] navigate  [enter] details  [b] back")
 	}
-	return screenBoxFixed().Render(header + m.viewport.View() + footer)
+	return tea.NewView(screenBoxFixed().Render(header + m.viewport.View() + footer))
 }
 
 // --- Card rendering ---
@@ -594,7 +596,7 @@ func renderStampCard(slot stampSlot, selected bool) string {
 	}
 
 	cardStyle := lipgloss.NewStyle().
-		Width(stampCardInnerW).
+		Width(stampCardInnerW + 2). // +2 because lipgloss v2 includes border in width
 		Height(5).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(bc)
@@ -623,7 +625,7 @@ func renderStampCard(slot stampSlot, selected bool) string {
 	return cardStyle.Render(content)
 }
 
-func stampRarityBorderColor(rarity models.StampRarity) lipgloss.AdaptiveColor {
+func stampRarityBorderColor(rarity models.StampRarity) color.Color {
 	switch rarity {
 	case models.RarityRare:
 		return colorAccent

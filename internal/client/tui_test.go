@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/google/uuid"
 	"github.com/seastco/penpal/internal/protocol"
 )
@@ -20,12 +20,27 @@ func testApp() *AppState {
 	}
 }
 
-func keyMsg(key string) tea.KeyMsg {
-	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
+func keyMsg(key string) tea.KeyPressMsg {
+	if len(key) == 1 {
+		return tea.KeyPressMsg(tea.Key{Code: rune(key[0]), Text: key})
+	}
+	// Named keys
+	switch key {
+	case "enter":
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter})
+	case "esc":
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyEscape})
+	case "up":
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyUp})
+	case "down":
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyDown})
+	default:
+		return tea.KeyPressMsg(tea.Key{Code: rune(key[0]), Text: key})
+	}
 }
 
-func ctrlKeyMsg(key tea.KeyType) tea.KeyMsg {
-	return tea.KeyMsg{Type: key}
+func ctrlKeyMsg(code rune) tea.KeyPressMsg {
+	return tea.KeyPressMsg(tea.Key{Code: code, Mod: tea.ModCtrl})
 }
 
 // --- Home Screen Tests ---
@@ -71,7 +86,7 @@ func TestHome_QuitKey(t *testing.T) {
 
 func TestHome_ViewContainsMenuItems(t *testing.T) {
 	m := NewHomeModel(testApp())
-	view := m.View()
+	view := m.View().Content
 	for _, item := range []string{"Inbox", "Sent", "Compose", "Stamps", "Address Book"} {
 		if !strings.Contains(view, item) {
 			t.Errorf("view missing menu item: %s", item)
@@ -82,7 +97,7 @@ func TestHome_ViewContainsMenuItems(t *testing.T) {
 func TestHome_ViewShowsAddress(t *testing.T) {
 	app := testApp()
 	m := NewHomeModel(app)
-	view := m.View()
+	view := m.View().Content
 	if !strings.Contains(view, "testuser#1234") {
 		t.Error("view should show user address")
 	}
@@ -222,7 +237,7 @@ func TestInbox_EmptyView(t *testing.T) {
 	m := NewInboxModel(testApp())
 	m.loading = false
 	m.items = nil
-	view := m.View()
+	view := m.View().Content
 	if !strings.Contains(view, "no letters yet") {
 		t.Error("empty inbox should show 'no letters yet'")
 	}
@@ -234,7 +249,7 @@ func TestInbox_NewBadge(t *testing.T) {
 	m.items = []protocol.InboxItem{
 		{SenderName: "alice", DeliveredAt: time.Now(), ReadAt: nil},
 	}
-	view := m.View()
+	view := m.View().Content
 	if !strings.Contains(view, "new") {
 		t.Error("unread letter should show 'new' badge")
 	}
@@ -484,7 +499,7 @@ func TestInTransit_CursorAndTracking(t *testing.T) {
 func TestSent_EmptyView(t *testing.T) {
 	m := NewSentModel(testApp())
 	m.loading = false
-	view := m.View()
+	view := m.View().Content
 	if !strings.Contains(view, "no letters yet") {
 		t.Error("empty sent should show 'no letters yet'")
 	}
@@ -549,7 +564,7 @@ func TestReadLetter_DecryptedView(t *testing.T) {
 		ReadAt:      &now,
 	}
 	m := NewReadLetterModel(testApp(), item, "Hello from Boston!")
-	view := m.View()
+	view := m.View().Content
 	if !strings.Contains(view, "Hello from Boston!") {
 		t.Error("view should show decrypted body")
 	}
@@ -567,7 +582,7 @@ func TestReadLetter_TypewriterOnNew(t *testing.T) {
 	if !m.typing {
 		t.Fatal("expected typing mode for unread letter")
 	}
-	view := m.View()
+	view := m.View().Content
 	if strings.Contains(view, "Hello!") {
 		t.Error("body should not be fully visible during typewriter")
 	}
@@ -581,7 +596,7 @@ func TestReadLetter_TypewriterOnNew(t *testing.T) {
 	if rm.typing {
 		t.Error("key press should skip typewriter")
 	}
-	view = rm.View()
+	view = rm.View().Content
 	if !strings.Contains(view, "Hello!") {
 		t.Error("body should be fully visible after skip")
 	}
@@ -661,14 +676,14 @@ func TestCompose_CtrlRTogglesOriginal(t *testing.T) {
 	}
 
 	// Press ctrl+r to show original
-	updated, _ := m.Update(ctrlKeyMsg(tea.KeyCtrlR))
+	updated, _ := m.Update(ctrlKeyMsg('r'))
 	cm := updated.(ComposeModel)
 	if !cm.showingOriginal {
 		t.Error("ctrl+r should toggle to original view")
 	}
 
 	// Press ctrl+r again to go back
-	updated, _ = cm.Update(ctrlKeyMsg(tea.KeyCtrlR))
+	updated, _ = cm.Update(ctrlKeyMsg('r'))
 	cm = updated.(ComposeModel)
 	if cm.showingOriginal {
 		t.Error("ctrl+r should toggle back to compose")
@@ -679,7 +694,7 @@ func TestCompose_CtrlRNoOpOnFreshCompose(t *testing.T) {
 	m := NewComposeModelTo(testApp(), uuid.New(), "alice", uuid.Nil, "")
 	m.step = 1
 
-	updated, _ := m.Update(ctrlKeyMsg(tea.KeyCtrlR))
+	updated, _ := m.Update(ctrlKeyMsg('r'))
 	cm := updated.(ComposeModel)
 	if cm.showingOriginal {
 		t.Error("ctrl+r should be a no-op on fresh compose (no original)")
@@ -697,14 +712,14 @@ func TestCompose_TextareaPreservedAcrossToggle(t *testing.T) {
 	m.bodyArea.SetValue("My reply text here")
 
 	// Toggle to original
-	updated, _ := m.Update(ctrlKeyMsg(tea.KeyCtrlR))
+	updated, _ := m.Update(ctrlKeyMsg('r'))
 	cm := updated.(ComposeModel)
 	if !cm.showingOriginal {
 		t.Fatal("should be showing original")
 	}
 
 	// Toggle back
-	updated, _ = cm.Update(ctrlKeyMsg(tea.KeyCtrlR))
+	updated, _ = cm.Update(ctrlKeyMsg('r'))
 	cm = updated.(ComposeModel)
 	if cm.showingOriginal {
 		t.Fatal("should be back to compose")
@@ -761,10 +776,10 @@ func TestCompose_OriginalViewContent(t *testing.T) {
 	m := NewComposeModelTo(app, uuid.New(), "bob", msgID, "bob")
 
 	// Toggle to original
-	updated, _ := m.Update(ctrlKeyMsg(tea.KeyCtrlR))
+	updated, _ := m.Update(ctrlKeyMsg('r'))
 	cm := updated.(ComposeModel)
 
-	view := cm.View()
+	view := cm.View().Content
 	if !strings.Contains(view, "ORIGINAL LETTER") {
 		t.Error("original view should show ORIGINAL LETTER title")
 	}
@@ -900,7 +915,7 @@ func TestCompose_DraftRestoredNotice(t *testing.T) {
 	if !m.draftRestored {
 		t.Error("draftRestored should be true after loading a draft")
 	}
-	view := m.View()
+	view := m.View().Content
 	if !strings.Contains(view, "draft restored") {
 		t.Error("view should contain 'draft restored' notice")
 	}
@@ -915,14 +930,14 @@ func TestCompose_ViewBodyShowsCtrlRHint(t *testing.T) {
 	app.DecryptedBodies[msgID] = "body"
 
 	m := NewComposeModelTo(app, uuid.New(), "alice", msgID, "alice")
-	view := m.View()
+	view := m.View().Content
 	if !strings.Contains(view, "ctrl+r") {
 		t.Error("compose view should show ctrl+r hint when replying")
 	}
 
 	// Fresh compose should NOT show ctrl+r hint
 	m2 := NewComposeModelTo(testApp(), uuid.New(), "bob", uuid.Nil, "")
-	view2 := m2.View()
+	view2 := m2.View().Content
 	if strings.Contains(view2, "ctrl+r") {
 		t.Error("fresh compose should not show ctrl+r hint")
 	}

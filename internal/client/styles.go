@@ -1,11 +1,12 @@
 package client
 
 import (
+	"image/color"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 var (
@@ -13,16 +14,20 @@ var (
 	termWidth  = 80
 	termHeight = 24
 
-	// Adaptive color palette — reassigned by applyTheme()
-	colorPrimary lipgloss.AdaptiveColor
-	colorAccent  lipgloss.AdaptiveColor
-	colorMuted   lipgloss.AdaptiveColor
-	colorBorder  lipgloss.AdaptiveColor
-	colorText    lipgloss.AdaptiveColor
-	colorSuccess lipgloss.AdaptiveColor
-	colorError   lipgloss.AdaptiveColor
-	colorNew     lipgloss.AdaptiveColor
-	colorDim     lipgloss.AdaptiveColor
+	// Resolved color palette — reassigned by applyTheme()
+	colorPrimary color.Color
+	colorAccent  color.Color
+	colorMuted   color.Color
+	colorBorder  color.Color
+	colorText    color.Color
+	colorSuccess color.Color
+	colorError   color.Color
+	colorNew     color.Color
+	colorDim     color.Color
+
+	// isDark tracks whether the terminal has a dark background.
+	isDark       = true
+	currentTheme Theme
 
 	// Styles — rebuilt by applyTheme()
 	titleStyle    lipgloss.Style
@@ -38,80 +43,99 @@ var (
 	dimStyle      lipgloss.Style
 )
 
+// colorPair holds dark and light color variants.
+type colorPair struct {
+	Dark  color.Color
+	Light color.Color
+}
+
 // Theme defines a color palette with dark and light variants.
 type Theme struct {
 	Name    string
-	Primary lipgloss.AdaptiveColor
-	Accent  lipgloss.AdaptiveColor
-	Muted   lipgloss.AdaptiveColor
-	Border  lipgloss.AdaptiveColor
-	Text    lipgloss.AdaptiveColor
-	Success lipgloss.AdaptiveColor
-	Error   lipgloss.AdaptiveColor
-	New     lipgloss.AdaptiveColor
-	Dim     lipgloss.AdaptiveColor
+	Primary colorPair
+	Accent  colorPair
+	Muted   colorPair
+	Border  colorPair
+	Text    colorPair
+	Success colorPair
+	Error   colorPair
+	New     colorPair
+	Dim     colorPair
+}
+
+// ac is a shorthand for creating color pairs from hex strings.
+func ac(dark, light string) colorPair {
+	return colorPair{Dark: lipgloss.Color(dark), Light: lipgloss.Color(light)}
+}
+
+// pickColor resolves a colorPair to a single color based on isDark.
+func pickColor(cp colorPair) color.Color {
+	if isDark {
+		return cp.Dark
+	}
+	return cp.Light
 }
 
 var themes = []Theme{
 	{
 		Name:    "Catppuccin",
-		Primary: lipgloss.AdaptiveColor{Dark: "#89B4FA", Light: "#1E66F5"},
-		Accent:  lipgloss.AdaptiveColor{Dark: "#74C7EC", Light: "#209FB5"},
-		Muted:   lipgloss.AdaptiveColor{Dark: "#6C7086", Light: "#9CA0B0"},
-		Border:  lipgloss.AdaptiveColor{Dark: "#45475A", Light: "#BCC0CC"},
-		Text:    lipgloss.AdaptiveColor{Dark: "#CDD6F4", Light: "#4C4F69"},
-		Success: lipgloss.AdaptiveColor{Dark: "#A6E3A1", Light: "#40A02B"},
-		Error:   lipgloss.AdaptiveColor{Dark: "#F38BA8", Light: "#D20F39"},
-		New:     lipgloss.AdaptiveColor{Dark: "#FAB387", Light: "#FE640B"},
-		Dim:     lipgloss.AdaptiveColor{Dark: "#585B70", Light: "#CCD0DA"},
+		Primary: ac("#89B4FA", "#1E66F5"),
+		Accent:  ac("#74C7EC", "#209FB5"),
+		Muted:   ac("#6C7086", "#9CA0B0"),
+		Border:  ac("#45475A", "#BCC0CC"),
+		Text:    ac("#CDD6F4", "#4C4F69"),
+		Success: ac("#A6E3A1", "#40A02B"),
+		Error:   ac("#F38BA8", "#D20F39"),
+		New:     ac("#FAB387", "#FE640B"),
+		Dim:     ac("#585B70", "#CCD0DA"),
 	},
 	{
 		Name:    "Nord",
-		Primary: lipgloss.AdaptiveColor{Dark: "#88C0D0", Light: "#5E81AC"},
-		Accent:  lipgloss.AdaptiveColor{Dark: "#81A1C1", Light: "#5E81AC"},
-		Muted:   lipgloss.AdaptiveColor{Dark: "#4C566A", Light: "#9099AB"},
-		Border:  lipgloss.AdaptiveColor{Dark: "#3B4252", Light: "#D8DEE9"},
-		Text:    lipgloss.AdaptiveColor{Dark: "#ECEFF4", Light: "#2E3440"},
-		Success: lipgloss.AdaptiveColor{Dark: "#A3BE8C", Light: "#4C8C5E"},
-		Error:   lipgloss.AdaptiveColor{Dark: "#BF616A", Light: "#BF616A"},
-		New:     lipgloss.AdaptiveColor{Dark: "#D08770", Light: "#D08770"},
-		Dim:     lipgloss.AdaptiveColor{Dark: "#434C5E", Light: "#D8DEE9"},
+		Primary: ac("#88C0D0", "#5E81AC"),
+		Accent:  ac("#81A1C1", "#5E81AC"),
+		Muted:   ac("#4C566A", "#9099AB"),
+		Border:  ac("#3B4252", "#D8DEE9"),
+		Text:    ac("#ECEFF4", "#2E3440"),
+		Success: ac("#A3BE8C", "#4C8C5E"),
+		Error:   ac("#BF616A", "#BF616A"),
+		New:     ac("#D08770", "#D08770"),
+		Dim:     ac("#434C5E", "#D8DEE9"),
 	},
 	{
 		Name:    "Rosé Pine",
-		Primary: lipgloss.AdaptiveColor{Dark: "#C4A7E7", Light: "#907AA9"},
-		Accent:  lipgloss.AdaptiveColor{Dark: "#EBBCBA", Light: "#D7827E"},
-		Muted:   lipgloss.AdaptiveColor{Dark: "#6E6A86", Light: "#9893A5"},
-		Border:  lipgloss.AdaptiveColor{Dark: "#403D52", Light: "#DFDAD9"},
-		Text:    lipgloss.AdaptiveColor{Dark: "#E0DEF4", Light: "#575279"},
-		Success: lipgloss.AdaptiveColor{Dark: "#9CCFD8", Light: "#56949F"},
-		Error:   lipgloss.AdaptiveColor{Dark: "#EB6F92", Light: "#B4637A"},
-		New:     lipgloss.AdaptiveColor{Dark: "#F6C177", Light: "#EA9D34"},
-		Dim:     lipgloss.AdaptiveColor{Dark: "#524F67", Light: "#E4DFDE"},
+		Primary: ac("#C4A7E7", "#907AA9"),
+		Accent:  ac("#EBBCBA", "#D7827E"),
+		Muted:   ac("#6E6A86", "#9893A5"),
+		Border:  ac("#403D52", "#DFDAD9"),
+		Text:    ac("#E0DEF4", "#575279"),
+		Success: ac("#9CCFD8", "#56949F"),
+		Error:   ac("#EB6F92", "#B4637A"),
+		New:     ac("#F6C177", "#EA9D34"),
+		Dim:     ac("#524F67", "#E4DFDE"),
 	},
 	{
 		Name:    "Gruvbox",
-		Primary: lipgloss.AdaptiveColor{Dark: "#83A598", Light: "#427B58"},
-		Accent:  lipgloss.AdaptiveColor{Dark: "#FABD2F", Light: "#B57614"},
-		Muted:   lipgloss.AdaptiveColor{Dark: "#665C54", Light: "#A89984"},
-		Border:  lipgloss.AdaptiveColor{Dark: "#504945", Light: "#D5C4A1"},
-		Text:    lipgloss.AdaptiveColor{Dark: "#EBDBB2", Light: "#3C3836"},
-		Success: lipgloss.AdaptiveColor{Dark: "#B8BB26", Light: "#79740E"},
-		Error:   lipgloss.AdaptiveColor{Dark: "#FB4934", Light: "#CC241D"},
-		New:     lipgloss.AdaptiveColor{Dark: "#FE8019", Light: "#AF3A03"},
-		Dim:     lipgloss.AdaptiveColor{Dark: "#3C3836", Light: "#D5C4A1"},
+		Primary: ac("#83A598", "#427B58"),
+		Accent:  ac("#FABD2F", "#B57614"),
+		Muted:   ac("#665C54", "#A89984"),
+		Border:  ac("#504945", "#D5C4A1"),
+		Text:    ac("#EBDBB2", "#3C3836"),
+		Success: ac("#B8BB26", "#79740E"),
+		Error:   ac("#FB4934", "#CC241D"),
+		New:     ac("#FE8019", "#AF3A03"),
+		Dim:     ac("#3C3836", "#D5C4A1"),
 	},
 	{
 		Name:    "Dracula",
-		Primary: lipgloss.AdaptiveColor{Dark: "#BD93F9", Light: "#7C3AED"},
-		Accent:  lipgloss.AdaptiveColor{Dark: "#8BE9FD", Light: "#0891B2"},
-		Muted:   lipgloss.AdaptiveColor{Dark: "#6272A4", Light: "#94A3B8"},
-		Border:  lipgloss.AdaptiveColor{Dark: "#44475A", Light: "#CBD5E1"},
-		Text:    lipgloss.AdaptiveColor{Dark: "#F8F8F2", Light: "#1E293B"},
-		Success: lipgloss.AdaptiveColor{Dark: "#50FA7B", Light: "#16A34A"},
-		Error:   lipgloss.AdaptiveColor{Dark: "#FF5555", Light: "#DC2626"},
-		New:     lipgloss.AdaptiveColor{Dark: "#FFB86C", Light: "#EA580C"},
-		Dim:     lipgloss.AdaptiveColor{Dark: "#44475A", Light: "#CBD5E1"},
+		Primary: ac("#BD93F9", "#7C3AED"),
+		Accent:  ac("#8BE9FD", "#0891B2"),
+		Muted:   ac("#6272A4", "#94A3B8"),
+		Border:  ac("#44475A", "#CBD5E1"),
+		Text:    ac("#F8F8F2", "#1E293B"),
+		Success: ac("#50FA7B", "#16A34A"),
+		Error:   ac("#FF5555", "#DC2626"),
+		New:     ac("#FFB86C", "#EA580C"),
+		Dim:     ac("#44475A", "#CBD5E1"),
 	},
 }
 
@@ -121,15 +145,17 @@ func init() {
 
 // applyTheme sets all color and style variables from the given theme.
 func applyTheme(t Theme) {
-	colorPrimary = t.Primary
-	colorAccent = t.Accent
-	colorMuted = t.Muted
-	colorBorder = t.Border
-	colorText = t.Text
-	colorSuccess = t.Success
-	colorError = t.Error
-	colorNew = t.New
-	colorDim = t.Dim
+	currentTheme = t
+
+	colorPrimary = pickColor(t.Primary)
+	colorAccent = pickColor(t.Accent)
+	colorMuted = pickColor(t.Muted)
+	colorBorder = pickColor(t.Border)
+	colorText = pickColor(t.Text)
+	colorSuccess = pickColor(t.Success)
+	colorError = pickColor(t.Error)
+	colorNew = pickColor(t.New)
+	colorDim = pickColor(t.Dim)
 
 	titleStyle = lipgloss.NewStyle().Foreground(colorPrimary).Bold(true)
 	dividerStyle = lipgloss.NewStyle().Foreground(colorBorder)
@@ -142,6 +168,12 @@ func applyTheme(t Theme) {
 	successStyle = lipgloss.NewStyle().Foreground(colorSuccess)
 	helpStyle = lipgloss.NewStyle().Foreground(colorMuted).Italic(true)
 	dimStyle = lipgloss.NewStyle().Foreground(colorDim)
+}
+
+// setDarkMode updates the dark/light preference and reapplies the current theme.
+func setDarkMode(dark bool) {
+	isDark = dark
+	applyTheme(currentTheme)
 }
 
 // themeByName returns the theme with the given name, or the default theme.
@@ -201,7 +233,7 @@ func screenBox() lipgloss.Style {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(colorBorder).
 		Padding(1, 2).
-		Width(boxWidth())
+		Width(boxWidth() + 2) // +2 because lipgloss v2 includes border in width
 }
 
 // screenBoxEmpty returns a box that matches the home screen's height,

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	pencrypto "github.com/seastco/penpal/internal/crypto"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -107,7 +107,7 @@ func (m PinEntryModel) Init() tea.Cmd {
 
 func (m PinEntryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if m.shaking {
 			return m, nil // ignore input during shake
 		}
@@ -146,7 +146,7 @@ func (m PinEntryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m PinEntryModel) View() string {
+func (m PinEntryModel) View() tea.View {
 	envSt := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var b strings.Builder
@@ -160,7 +160,7 @@ func (m PinEntryModel) View() string {
 		AlignVertical(lipgloss.Center).
 		AlignHorizontal(lipgloss.Center).
 		Render(b.String())
-	return screenBox().Render(inner)
+	return tea.NewView(screenBox().Render(inner))
 }
 
 // --- PIN Setup (optional, after registration) ---
@@ -199,7 +199,7 @@ func (m PinSetupModel) Init() tea.Cmd {
 
 func (m PinSetupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if m.shaking {
 			return m, nil
 		}
@@ -272,7 +272,7 @@ func (m PinSetupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m PinSetupModel) View() string {
+func (m PinSetupModel) View() tea.View {
 	envSt := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var b strings.Builder
@@ -315,5 +315,5 @@ func (m PinSetupModel) View() string {
 		AlignVertical(lipgloss.Center).
 		AlignHorizontal(lipgloss.Center).
 		Render(b.String())
-	return screenBox().Render(inner)
+	return tea.NewView(screenBox().Render(inner))
 }

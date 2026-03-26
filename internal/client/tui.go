@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	pencrypto "github.com/seastco/penpal/internal/crypto"
 )
 
@@ -49,14 +49,7 @@ func NewTUI(app *AppState) TUI {
 }
 
 func (t TUI) Init() tea.Cmd {
-	title := "Penpal"
-	if t.app.Username != "" {
-		title = fmt.Sprintf("Penpal — %s", t.app.Address())
-	}
-	return tea.Batch(
-		t.currentModel.Init(),
-		tea.SetWindowTitle(title),
-	)
+	return tea.Batch(t.currentModel.Init(), tea.RequestBackgroundColor)
 }
 
 func (t TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -67,11 +60,19 @@ func (t TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case tea.BackgroundColorMsg:
+		setDarkMode(msg.IsDark())
+		return t, nil
 	case switchScreenMsg:
 		return t.switchTo(msg.screen)
 	case readLetterMsg:
 		// Snapshot the inbox before switching so 'b' restores it instantly
 		if inbox, ok := t.currentModel.(InboxModel); ok {
+			// Mark as read now so the "new" badge clears regardless of how we exit
+			if inbox.cursor >= 0 && inbox.cursor < len(inbox.items) && inbox.items[inbox.cursor].ReadAt == nil {
+				now := time.Now()
+				inbox.items[inbox.cursor].ReadAt = &now
+			}
 			t.cachedInbox = &inbox
 			t.readingMsgIdx = inbox.cursor
 		}
@@ -82,11 +83,6 @@ func (t TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case backToInboxMsg:
 		if t.cachedInbox != nil {
 			inbox := *t.cachedInbox
-			// Mark the letter we just read so the "new" badge disappears
-			if t.readingMsgIdx >= 0 && t.readingMsgIdx < len(inbox.items) && inbox.items[t.readingMsgIdx].ReadAt == nil {
-				now := time.Now()
-				inbox.items[t.readingMsgIdx].ReadAt = &now
-			}
 			inbox = inbox.syncViewport()
 			t.currentModel = inbox
 			t.screen = ScreenInbox
@@ -183,6 +179,14 @@ func (t TUI) switchTo(screen Screen) (tea.Model, tea.Cmd) {
 	return t, m.Init()
 }
 
-func (t TUI) View() string {
-	return centeredView(t.currentModel.View())
+func (t TUI) View() tea.View {
+	title := "Penpal"
+	if t.app.Username != "" {
+		title = fmt.Sprintf("Penpal — %s", t.app.Address())
+	}
+	return tea.View{
+		Content:     centeredView(t.currentModel.View().Content),
+		AltScreen:   true,
+		WindowTitle: title,
+	}
 }
