@@ -233,7 +233,7 @@ func screenBox() lipgloss.Style {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(colorBorder).
 		Padding(1, 2).
-		Width(boxWidth())
+		Width(boxWidth() + 2) // +2 because lipgloss v2 includes border in width
 }
 
 // screenBoxEmpty returns a box that matches the home screen's height,

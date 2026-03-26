@@ -596,7 +596,7 @@ func renderStampCard(slot stampSlot, selected bool) string {
 	}
 
 	cardStyle := lipgloss.NewStyle().
-		Width(stampCardInnerW).
+		Width(stampCardInnerW + 2). // +2 because lipgloss v2 includes border in width
 		Height(5).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(bc)
