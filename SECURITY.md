@@ -2,6 +2,22 @@
 
 penpal uses end-to-end encryption so the relay server transports messages it cannot read. This document describes the cryptographic design for developers who want to understand the threat model.
 
+## How It Works (Plain English)
+
+When you create a penpal account, you get a 12-word secret phrase. This phrase generates a unique pair of keys: a **public key** (like a mailing address anyone can see) and a **private key** (like a key to your mailbox that only you have).
+
+When you send a letter, your app uses *your* private key and the *recipient's* public key to scramble the message into unreadable gibberish. Only the recipient can unscramble it, because only they have the matching private key. The penpal server just passes this gibberish along -- it never has the keys needed to read it.
+
+**What the server can see:** who sent a letter to whom, when, and from which city. Basically, what a postal worker could read off an envelope.
+
+**What the server can never see:** what you actually wrote.
+
+**The catch:** your 12-word phrase *is* your account. Anyone who knows it can read your messages and pretend to be you. If you lose it, your account is gone. Write it down and keep it safe.
+
+---
+
+The rest of this document covers the cryptographic details for developers who want to understand the threat model.
+
 ## Key Generation
 
 Account identity is derived entirely from a 12-word BIP39 mnemonic:
