@@ -7,8 +7,6 @@ import (
 	"sort"
 	"strings"
 
-	"image/color"
-
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -131,7 +129,6 @@ type StampsModel struct {
 	viewport   viewport.Model
 	loading    bool
 	err        string
-	detailMode bool
 }
 
 func NewStampsModel(app *AppState) StampsModel {
@@ -159,14 +156,6 @@ func (m StampsModel) Init() tea.Cmd {
 func (m StampsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		if m.detailMode {
-			switch msg.String() {
-			case "b", "esc":
-				m.detailMode = false
-			}
-			m = m.syncViewport()
-			return m, nil
-		}
 		switch msg.String() {
 		case "left", "h":
 			if m.cursor > 0 {
@@ -213,10 +202,6 @@ func (m StampsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					target = maxInNext
 				}
 				m.cursor = target
-			}
-		case "enter":
-			if len(m.allSlots) > 0 && m.allSlots[m.cursor].collected {
-				m.detailMode = true
 			}
 		case "b", "esc":
 			return m, func() tea.Msg { return switchScreenMsg{screen: ScreenHome} }
@@ -424,8 +409,6 @@ func (m StampsModel) syncViewport() StampsModel {
 	var content string
 	if m.err != "" {
 		content = "\n" + errorStyle.Render(m.err)
-	} else if m.detailMode && m.cursor < len(m.allSlots) {
-		content = m.renderDetail(m.allSlots[m.cursor])
 	} else if len(m.allSlots) == 0 {
 		content = "\n" + mutedStyle.Render("no stamps yet")
 	} else {
@@ -434,7 +417,7 @@ func (m StampsModel) syncViewport() StampsModel {
 
 	yOffset := m.viewport.YOffset()
 	m.viewport.SetContent(content)
-	if len(m.allSlots) > 0 && !m.detailMode {
+	if len(m.allSlots) > 0 {
 		m.viewport.SetYOffset(yOffset)
 		// Keep cursor row visible (include category header above first card row)
 		cursorRow := m.cursorContentRow()
@@ -526,80 +509,6 @@ func (m StampsModel) renderGrid() string {
 	return b.String()
 }
 
-func (m StampsModel) renderDetail(slot stampSlot) string {
-	var b strings.Builder
-	b.WriteString("\n")
-
-	fullName := stampDetailName(slot.stampType)
-	isRare := strings.HasPrefix(slot.stampType, "rare:")
-
-	b.WriteString(fmt.Sprintf("Stamp     %s %s\n", slot.emoji, selectedStyle.Render(fullName)))
-
-	if slot.stamp != nil {
-		rarityLabel := string(slot.stamp.Rarity)
-		rarityColor := stampRarityBorderColor(slot.stamp.Rarity)
-		b.WriteString(fmt.Sprintf("Rarity    %s\n", lipgloss.NewStyle().Foreground(rarityColor).Render(rarityLabel)))
-		b.WriteString(fmt.Sprintf("Origin    %s\n", mutedStyle.Render(earnedViaLabel(slot.stamp.EarnedVia))))
-
-		if isRare {
-			b.WriteString(fmt.Sprintf("Earned    %s\n", mutedStyle.Render(slot.stamp.CreatedAt.Format("Jan 2, 2006"))))
-			if desc := rareDescription(slot.stampType); desc != "" {
-				b.WriteString(fmt.Sprintf("Award     %s\n", mutedStyle.Render(desc)))
-			}
-		} else {
-			b.WriteString(fmt.Sprintf("Count     %s\n", mutedStyle.Render(fmt.Sprintf("x%d", slot.count))))
-		}
-	} else if slot.collected {
-		// Discovered but currently owns none
-		b.WriteString(fmt.Sprintf("Count     %s\n", mutedStyle.Render("x0")))
-	}
-
-	b.WriteString("\n\n" + helpStyle.Render("[b] back to grid"))
-	return b.String()
-}
-
-// stampDetailName returns the full display name for a stamp in the detail view.
-func stampDetailName(stampType string) string {
-	if strings.HasPrefix(stampType, "common:") {
-		return commonDisplayName(stampType)
-	}
-	if strings.HasPrefix(stampType, "rare:") {
-		return rareDisplayName(stampType)
-	}
-	if strings.HasPrefix(stampType, "state:") {
-		code := strings.ToUpper(strings.TrimPrefix(stampType, "state:"))
-		if name, ok := stateNames[code]; ok {
-			return name
-		}
-		return code
-	}
-	if strings.HasPrefix(stampType, "country:") {
-		code := strings.ToUpper(strings.TrimPrefix(stampType, "country:"))
-		if name, ok := countryStampNames[code]; ok {
-			return name
-		}
-		return code
-	}
-	return stampType
-}
-
-func rareDescription(key string) string {
-	switch key {
-	case "rare:cross_country":
-		return "Sent a letter from coast to coast"
-	case "rare:explorer":
-		return "Collected stamps from 10 different states"
-	case "rare:penpal":
-		return "Exchanged letters with 10 different pen pals"
-	case "rare:faithful":
-		return "Sent a letter every week for a month"
-	case "rare:collector":
-		return "Collected 25 unique stamps"
-	default:
-		return ""
-	}
-}
-
 func (m StampsModel) View() tea.View {
 	m = m.syncViewport()
 
@@ -608,12 +517,7 @@ func (m StampsModel) View() tea.View {
 		"")
 	header := title + "\n" + divider(contentWidth()) + "\n"
 
-	var footer string
-	if m.detailMode {
-		footer = ""
-	} else {
-		footer = "\n\n" + helpStyle.Render("[arrows] navigate  [enter] details  [b] back")
-	}
+	footer := "\n\n" + helpStyle.Render("[arrows] navigate  [b] back")
 	return tea.NewView(screenBoxFixed().Render(header + m.viewport.View() + footer))
 }
 
@@ -655,17 +559,6 @@ func renderStampCard(slot stampSlot, selected bool) string {
 		content = "\n\n" + icon + "\n" + count + "\n"
 	}
 	return cardStyle.Render(content)
-}
-
-func stampRarityBorderColor(rarity models.StampRarity) color.Color {
-	switch rarity {
-	case models.RarityRare:
-		return colorAccent
-	case models.RarityUltra:
-		return colorNew
-	default:
-		return colorBorder
-	}
 }
 
 // --- Helpers ---
@@ -767,23 +660,6 @@ func rareDisplayName(key string) string {
 		return "Collector"
 	default:
 		return key
-	}
-}
-
-func earnedViaLabel(via models.EarnedVia) string {
-	switch via {
-	case "registration":
-		return "Registration bonus"
-	case "weekly":
-		return "Weekly reward"
-	case "transfer":
-		return "Received in a letter"
-	case "mint":
-		return "Gift"
-	case "delivery", "route":
-		return "Delivery bonus"
-	default:
-		return string(via)
 	}
 }
 
