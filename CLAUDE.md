@@ -62,6 +62,7 @@ The e2e test (`internal/e2e_test.go`) requires a running server and database. It
 - `TUI` main model manages screen transitions; each screen implements `tea.Model`
 - Shared `AppState` struct holds user identity, contacts, inbox, sent, in-transit data
 - Network requests are async via Bubbletea's command/message pattern (`internal/client/network.go`)
+- **Emoji width constraint:** Only use single-codepoint emojis in the TUI. Flag emojis (e.g. 🇺🇸, 🇪🇸) are regional indicator sequences made of two codepoints — terminals render them at inconsistent widths (often 1 cell instead of the measured 2), which breaks `lipgloss.JoinHorizontal` alignment and card grid rendering. Stick to standard emojis like 🦅, 🐂, 🌟 which are always 2 cells wide.
 
 ## Environment Variables
 
