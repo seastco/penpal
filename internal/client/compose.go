@@ -467,7 +467,7 @@ func (m ComposeModel) updateStamp(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = ""
 		}
 	case letterSentMsg:
-		_ = DeleteDraft(m.recipientID)
+		_ = DeleteDraft(m.recipientID, m.originalMsgID)
 		return m, func() tea.Msg {
 			return trackLetterMsg{msgID: msg.resp.MessageID, label: "to " + m.recipientName, origin: ScreenHome}
 		}
@@ -529,7 +529,7 @@ func (m ComposeModel) saveDraft() {
 	}
 	body := strings.TrimSpace(m.bodyArea.Value())
 	if body == "" {
-		_ = DeleteDraft(m.recipientID)
+		_ = DeleteDraft(m.recipientID, m.originalMsgID)
 		return
 	}
 	_ = SaveDraft(Draft{
@@ -546,15 +546,11 @@ func (m *ComposeModel) loadDraftIfExists() {
 	if m.recipientID == uuid.Nil {
 		return
 	}
-	d, err := LoadDraft(m.recipientID)
+	d, err := LoadDraft(m.recipientID, m.originalMsgID)
 	if err != nil || d == nil {
 		return
 	}
 	m.bodyArea.SetValue(d.Body)
-	if m.originalMsgID == uuid.Nil && d.OriginalMsgID != uuid.Nil {
-		m.originalMsgID = d.OriginalMsgID
-		m.originalSender = d.OriginalSender
-	}
 	m.draftRestored = true
 }
 

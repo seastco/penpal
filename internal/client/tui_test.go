@@ -809,7 +809,7 @@ func TestDraft_SaveAndLoad(t *testing.T) {
 		t.Fatalf("SaveDraft failed: %v", err)
 	}
 
-	loaded, err := LoadDraft(recipientID)
+	loaded, err := LoadDraft(recipientID, original.OriginalMsgID)
 	if err != nil {
 		t.Fatalf("LoadDraft failed: %v", err)
 	}
@@ -831,7 +831,7 @@ func TestDraft_LoadMissing(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("PENPAL_HOME", tmp)
 
-	d, err := LoadDraft(uuid.New())
+	d, err := LoadDraft(uuid.New(), uuid.Nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -854,18 +854,18 @@ func TestDraft_DeleteOnSend(t *testing.T) {
 	}
 
 	// Verify it exists
-	d, _ := LoadDraft(recipientID)
+	d, _ := LoadDraft(recipientID, uuid.Nil)
 	if d == nil {
 		t.Fatal("draft should exist after save")
 	}
 
 	// Delete
-	if err := DeleteDraft(recipientID); err != nil {
+	if err := DeleteDraft(recipientID, uuid.Nil); err != nil {
 		t.Fatalf("DeleteDraft failed: %v", err)
 	}
 
 	// Verify it's gone
-	d, _ = LoadDraft(recipientID)
+	d, _ = LoadDraft(recipientID, uuid.Nil)
 	if d != nil {
 		t.Error("draft should be nil after delete")
 	}
@@ -892,7 +892,7 @@ func TestDraft_EmptyBodyDeletes(t *testing.T) {
 	m.bodyArea.SetValue("   ") // whitespace-only
 	m.saveDraft()
 
-	d, _ := LoadDraft(recipientID)
+	d, _ := LoadDraft(recipientID, uuid.Nil)
 	if d != nil {
 		t.Error("draft should be deleted when body is empty/whitespace")
 	}

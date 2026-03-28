@@ -28,7 +28,16 @@ func draftsDir() (string, error) {
 	return filepath.Join(dir, "drafts"), nil
 }
 
-// SaveDraft persists a draft to disk, keyed by recipient ID.
+// draftKey returns the filename stem for a draft. Replies include the original
+// message ID so that drafts for different replies to the same sender stay separate.
+func draftKey(recipientID, originalMsgID uuid.UUID) string {
+	if originalMsgID == uuid.Nil {
+		return recipientID.String()
+	}
+	return recipientID.String() + "_" + originalMsgID.String()
+}
+
+// SaveDraft persists a draft to disk.
 func SaveDraft(d Draft) error {
 	dir, err := draftsDir()
 	if err != nil {
@@ -41,16 +50,16 @@ func SaveDraft(d Draft) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, d.RecipientID.String()+".json"), data, 0600)
+	return os.WriteFile(filepath.Join(dir, draftKey(d.RecipientID, d.OriginalMsgID)+".json"), data, 0600)
 }
 
-// LoadDraft loads a draft for the given recipient. Returns nil, nil if no draft exists.
-func LoadDraft(recipientID uuid.UUID) (*Draft, error) {
+// LoadDraft loads a draft for the given recipient and original message. Returns nil, nil if no draft exists.
+func LoadDraft(recipientID, originalMsgID uuid.UUID) (*Draft, error) {
 	dir, err := draftsDir()
 	if err != nil {
 		return nil, err
 	}
-	data, err := os.ReadFile(filepath.Join(dir, recipientID.String()+".json"))
+	data, err := os.ReadFile(filepath.Join(dir, draftKey(recipientID, originalMsgID)+".json"))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -64,13 +73,13 @@ func LoadDraft(recipientID uuid.UUID) (*Draft, error) {
 	return &d, nil
 }
 
-// DeleteDraft removes the draft file for the given recipient. No error if it doesn't exist.
-func DeleteDraft(recipientID uuid.UUID) error {
+// DeleteDraft removes a draft file. No error if it doesn't exist.
+func DeleteDraft(recipientID, originalMsgID uuid.UUID) error {
 	dir, err := draftsDir()
 	if err != nil {
 		return err
 	}
-	err = os.Remove(filepath.Join(dir, recipientID.String()+".json"))
+	err = os.Remove(filepath.Join(dir, draftKey(recipientID, originalMsgID)+".json"))
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
