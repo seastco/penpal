@@ -350,7 +350,7 @@ func (m ComposeModel) fetchShipping() tea.Cmd {
 
 func (m ComposeModel) fetchStamps() tea.Cmd {
 	return func() tea.Msg {
-		stamps, err := m.app.Network.GetStampsAll(context.Background())
+		stamps, _, err := m.app.Network.GetStampsAll(context.Background())
 		if err != nil {
 			return errMsg{err: err}
 		}

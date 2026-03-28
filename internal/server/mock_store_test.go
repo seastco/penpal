@@ -337,6 +337,14 @@ func (m *mockStore) CreateStamp(_ context.Context, ownerID uuid.UUID, stampType 
 	return s, nil
 }
 
+func (m *mockStore) RecordDiscovery(_ context.Context, _ uuid.UUID, _ string) error {
+	return nil
+}
+
+func (m *mockStore) GetDiscoveries(_ context.Context, _ uuid.UUID) ([]string, error) {
+	return nil, nil
+}
+
 func (m *mockStore) HasReceivedFrom(_ context.Context, _, _ uuid.UUID) (bool, error) {
 	return false, nil
 }

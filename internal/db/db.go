@@ -454,6 +454,18 @@ func (d *DB) DeliverMessages(ctx context.Context) ([]models.Message, error) {
 		if err != nil {
 			return nil, fmt.Errorf("transferring stamps for message %s: %w", m.ID, err)
 		}
+		// Record discoveries for the recipient
+		_, err = tx.ExecContext(ctx,
+			`INSERT INTO stamp_discoveries (user_id, stamp_type)
+			 SELECT $1, s.stamp_type FROM stamps s
+			 JOIN stamp_attachments sa ON sa.stamp_id = s.id
+			 WHERE sa.message_id = $2
+			 ON CONFLICT DO NOTHING`,
+			m.RecipientID, m.ID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("recording discoveries for message %s: %w", m.ID, err)
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -764,7 +776,37 @@ func (d *DB) CreateStamp(ctx context.Context, ownerID uuid.UUID, stampType strin
 	if err != nil {
 		return nil, err
 	}
+	_ = d.RecordDiscovery(ctx, ownerID, stampType)
 	return s, nil
+}
+
+// RecordDiscovery records that a user has discovered a stamp type (idempotent).
+func (d *DB) RecordDiscovery(ctx context.Context, userID uuid.UUID, stampType string) error {
+	_, err := d.pool.ExecContext(ctx,
+		`INSERT INTO stamp_discoveries (user_id, stamp_type) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+		userID, stampType,
+	)
+	return err
+}
+
+// GetDiscoveries returns all stamp types a user has ever owned.
+func (d *DB) GetDiscoveries(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	rows, err := d.pool.QueryContext(ctx,
+		`SELECT stamp_type FROM stamp_discoveries WHERE user_id = $1`, userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var types []string
+	for rows.Next() {
+		var t string
+		if err := rows.Scan(&t); err != nil {
+			return nil, err
+		}
+		types = append(types, t)
+	}
+	return types, rows.Err()
 }
 
 // HasReceivedFrom checks if userID has received any delivered/read letter from senderID.

@@ -904,7 +904,14 @@ func (c *Client) handleGetStamps(ctx context.Context, env protocol.Envelope) err
 	if err != nil {
 		return err
 	}
-	c.sendResponse(env.ReqID, protocol.MsgStampsList, protocol.StampsResponse{Stamps: stamps})
+	discoveries, err := c.server.db.GetDiscoveries(ctx, c.userID)
+	if err != nil {
+		return err
+	}
+	c.sendResponse(env.ReqID, protocol.MsgStampsList, protocol.StampsResponse{
+		Stamps:      stamps,
+		Discoveries: discoveries,
+	})
 	return nil
 }
 

@@ -53,6 +53,10 @@ type Store interface {
 	GetLastWeeklyStampTime(ctx context.Context, ownerID uuid.UUID) (time.Time, error)
 	GetUsersNeedingWeeklyStamp(ctx context.Context) ([]WeeklyStampUser, error)
 
+	// Stamp discovery tracking
+	RecordDiscovery(ctx context.Context, userID uuid.UUID, stampType string) error
+	GetDiscoveries(ctx context.Context, userID uuid.UUID) ([]string, error)
+
 	// System messages
 	CreateWelcomeMessage(ctx context.Context, msg *models.Message) error
 

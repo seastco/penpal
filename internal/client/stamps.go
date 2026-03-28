@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"image/color"
@@ -123,6 +124,7 @@ type stampCategory struct {
 type StampsModel struct {
 	app        *AppState
 	stamps     []models.Stamp
+	discovered map[string]bool // stamp types the user has ever owned
 	allSlots   []stampSlot
 	categories []stampCategory
 	cursor     int
@@ -140,16 +142,17 @@ func NewStampsModel(app *AppState) StampsModel {
 }
 
 type stampsLoadedMsg struct {
-	stamps []models.Stamp
+	stamps      []models.Stamp
+	discoveries []string
 }
 
 func (m StampsModel) Init() tea.Cmd {
 	return func() tea.Msg {
-		stamps, err := m.app.Network.GetStampsAll(context.Background())
+		stamps, discoveries, err := m.app.Network.GetStampsAll(context.Background())
 		if err != nil {
 			return errMsg{err: err}
 		}
-		return stampsLoadedMsg{stamps: stamps}
+		return stampsLoadedMsg{stamps: stamps, discoveries: discoveries}
 	}
 }
 
@@ -223,6 +226,10 @@ func (m StampsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.SetHeight(viewportHeight())
 	case stampsLoadedMsg:
 		m.stamps = msg.stamps
+		m.discovered = make(map[string]bool, len(msg.discoveries))
+		for _, d := range msg.discoveries {
+			m.discovered[d] = true
+		}
 		m.loading = false
 		m.buildSlots()
 	case errMsg:
@@ -273,6 +280,9 @@ func (m *StampsModel) buildSlots() {
 			s.rarity = a.stamp.Rarity
 			s.stamp = a.stamp
 			s.count = a.count
+		} else if m.discovered[key] {
+			s.collected = true
+			s.count = 0
 		}
 		cmSlots = append(cmSlots, s)
 	}
@@ -288,8 +298,8 @@ func (m *StampsModel) buildSlots() {
 	var stateSlotsList []stampSlot
 	for _, code := range allStateCodes {
 		key := "state:" + strings.ToLower(code)
-		a, ok := agg[key]
-		if !ok {
+		a, inAgg := agg[key]
+		if !inAgg && !m.discovered[key] {
 			continue
 		}
 		s := stampSlot{
@@ -297,9 +307,11 @@ func (m *StampsModel) buildSlots() {
 			displayName: code,
 			emoji:       stateEmoji[code],
 			collected:   true,
-			rarity:      a.stamp.Rarity,
-			stamp:       a.stamp,
-			count:       a.count,
+		}
+		if inAgg {
+			s.rarity = a.stamp.Rarity
+			s.stamp = a.stamp
+			s.count = a.count
 		}
 		stateSlotsList = append(stateSlotsList, s)
 	}
@@ -313,12 +325,20 @@ func (m *StampsModel) buildSlots() {
 		})
 	}
 
-	// COUNTRIES — show only collected country stamps
-	var countrySlotsList []stampSlot
-	for key, a := range agg {
-		if !strings.HasPrefix(key, "country:") {
-			continue
+	// COUNTRIES — show collected and discovered country stamps
+	allCountryKeys := make(map[string]bool)
+	for key := range agg {
+		if strings.HasPrefix(key, "country:") {
+			allCountryKeys[key] = true
 		}
+	}
+	for key := range m.discovered {
+		if strings.HasPrefix(key, "country:") {
+			allCountryKeys[key] = true
+		}
+	}
+	var countrySlotsList []stampSlot
+	for key := range allCountryKeys {
 		code := strings.ToUpper(strings.TrimPrefix(key, "country:"))
 		emoji := countryEmoji[code]
 		if emoji == "" {
@@ -328,16 +348,22 @@ func (m *StampsModel) buildSlots() {
 		if name == "" {
 			name = code
 		}
-		countrySlotsList = append(countrySlotsList, stampSlot{
+		s := stampSlot{
 			stampType:   key,
 			displayName: smartTruncate(name, stampCardInnerW),
 			emoji:       emoji,
 			collected:   true,
-			rarity:      a.stamp.Rarity,
-			stamp:       a.stamp,
-			count:       a.count,
-		})
+		}
+		if a, ok := agg[key]; ok {
+			s.rarity = a.stamp.Rarity
+			s.stamp = a.stamp
+			s.count = a.count
+		}
+		countrySlotsList = append(countrySlotsList, s)
 	}
+	sort.Slice(countrySlotsList, func(i, j int) bool {
+		return countrySlotsList[i].stampType < countrySlotsList[j].stampType
+	})
 	if len(countrySlotsList) > 0 {
 		countryStart := len(m.allSlots)
 		m.allSlots = append(m.allSlots, countrySlotsList...)
@@ -348,22 +374,25 @@ func (m *StampsModel) buildSlots() {
 		})
 	}
 
-	// RARE — only show collected + one mystery placeholder (after states/countries)
+	// RARE — show collected/discovered + mystery placeholder if none discovered
 	var rrSlots []stampSlot
 	for _, key := range rareSlots {
-		a, ok := agg[key]
-		if !ok {
+		a, inAgg := agg[key]
+		if !inAgg && !m.discovered[key] {
 			continue
 		}
-		rrSlots = append(rrSlots, stampSlot{
+		s := stampSlot{
 			stampType:   key,
 			displayName: rareDisplayName(key),
 			emoji:       stampEmoji[key],
 			collected:   true,
-			rarity:      a.stamp.Rarity,
-			stamp:       a.stamp,
-			count:       a.count,
-		})
+		}
+		if inAgg {
+			s.rarity = a.stamp.Rarity
+			s.stamp = a.stamp
+			s.count = a.count
+		}
+		rrSlots = append(rrSlots, s)
 	}
 	if len(rrSlots) > 0 {
 		// User has rare stamps — show count
@@ -520,6 +549,9 @@ func (m StampsModel) renderDetail(slot stampSlot) string {
 		} else {
 			b.WriteString(fmt.Sprintf("Count     %s\n", mutedStyle.Render(fmt.Sprintf("x%d", slot.count))))
 		}
+	} else if slot.collected {
+		// Discovered but currently owns none
+		b.WriteString(fmt.Sprintf("Count     %s\n", mutedStyle.Render("x0")))
 	}
 
 	b.WriteString("\n\n" + helpStyle.Render("[b] back to grid"))
@@ -765,16 +797,16 @@ func countCollected(slots []stampSlot) int {
 	return n
 }
 
-// GetStampsAll retrieves all stamps for the user.
-func (n *Network) GetStampsAll(ctx context.Context) ([]models.Stamp, error) {
+// GetStampsAll retrieves all stamps and discoveries for the user.
+func (n *Network) GetStampsAll(ctx context.Context) ([]models.Stamp, []string, error) {
 	resp, err := n.Send(ctx, protocol.MsgGetStamps, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	data, _ := json.Marshal(resp.Payload)
 	var result protocol.StampsResponse
 	if err := json.Unmarshal(data, &result); err != nil {
-		return nil, fmt.Errorf("parsing stamps response: %w", err)
+		return nil, nil, fmt.Errorf("parsing stamps response: %w", err)
 	}
-	return result.Stamps, nil
+	return result.Stamps, result.Discoveries, nil
 }

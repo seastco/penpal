@@ -258,7 +258,8 @@ type ContactsResponse struct {
 }
 
 type StampsResponse struct {
-	Stamps []models.Stamp `json:"stamps"`
+	Stamps      []models.Stamp `json:"stamps"`
+	Discoveries []string       `json:"discoveries,omitempty"`
 }
 
 type GetMessageResponse struct {
