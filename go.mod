@@ -3,12 +3,12 @@ module github.com/seastco/penpal
 go 1.26.1
 
 require (
-	charm.land/bubbles/v2 v2.0.0
+	charm.land/bubbles/v2 v2.1.0
 	charm.land/bubbletea/v2 v2.0.2
 	charm.land/lipgloss/v2 v2.0.2
 	filippo.io/edwards25519 v1.2.0
 	github.com/google/uuid v1.6.0
-	github.com/lib/pq v1.12.0
+	github.com/lib/pq v1.12.1
 	github.com/tyler-smith/go-bip39 v1.1.0
 	golang.org/x/crypto v0.49.0
 	nhooyr.io/websocket v1.8.17
