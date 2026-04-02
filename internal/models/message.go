@@ -168,6 +168,9 @@ type Message struct {
 	Status        MessageStatus `json:"status" db:"status"`
 }
 
+// Hop types for route visualization.
+const HopTypeMailbox = "mailbox"
+
 // RouteHop represents a single relay node in a letter's route.
 type RouteHop struct {
 	City  string    `json:"city"`
@@ -176,4 +179,5 @@ type RouteHop struct {
 	Lat   float64   `json:"lat"`
 	Lng   float64   `json:"lng"`
 	ETA   time.Time `json:"eta"`
+	Type  string    `json:"type,omitempty"`
 }

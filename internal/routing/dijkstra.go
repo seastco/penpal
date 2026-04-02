@@ -43,18 +43,24 @@ func (g *Graph) Route(fromIdx, toIdx int, tier models.ShippingTier, departureTim
 	if toIdx < 0 || toIdx >= len(g.Cities) {
 		return nil, 0, fmt.Errorf("invalid to city index: %d", toIdx)
 	}
+
+	express := tier.IsExpress()
+	senderLoc := g.Cities[fromIdx].Timezone()
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	// Mailbox pickup: letter waits in sender's mailbox until carrier arrives
+	carrierPickup := NextCarrierPickup(departureTime, senderLoc, express, rng)
+	mailboxHop := g.makeHop(fromIdx, departureTime.UTC())
+	mailboxHop.Type = models.HopTypeMailbox
+
 	if fromIdx == toIdx {
-		// Same-city route: apply facility processing + delivery window
-		express := tier.IsExpress()
-		senderLoc := g.Cities[fromIdx].Timezone()
-		departure := NextProcessingStart(departureTime, senderLoc, express)
-		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-		// One facility dwell then delivery
+		// Same-city route: mailbox → facility processing → delivery
+		departure := NextProcessingStart(carrierPickup, senderLoc, express)
 		dwell := SampleDwellHours(tier.DwellMeanHours(), tier.DwellSigma(), rng)
 		ready := AddFacilityHours(departure, dwell, senderLoc, express)
 		eta := NextDeliverySlot(ready, senderLoc, express, rng)
 		hop := g.makeHop(fromIdx, eta.UTC())
-		return []models.RouteHop{hop}, 1, nil
+		return []models.RouteHop{mailboxHop, hop}, 1, nil
 	}
 
 	path, totalDist, err := g.dijkstra(fromIdx, toIdx)
@@ -66,8 +72,10 @@ func (g *Graph) Route(fromIdx, toIdx int, tier models.ShippingTier, departureTim
 	path = samplePath(path, maxHops)
 
 	intl := len(international) > 0 && international[0]
-	hops := g.scheduleHops(path, tier, departureTime, totalDist, intl)
-	return hops, totalDist, nil
+	hops := g.scheduleHops(path, tier, carrierPickup, totalDist, intl)
+
+	// Prepend mailbox hop
+	return append([]models.RouteHop{mailboxHop}, hops...), totalDist, nil
 }
 
 // Path computes the shortest path between two cities, returning the sampled

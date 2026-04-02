@@ -1,6 +1,7 @@
 package routing
 
 import (
+	"math/rand"
 	"testing"
 	"time"
 
@@ -77,13 +78,21 @@ func TestRoute_BostonToDenver(t *testing.T) {
 		t.Fatalf("distance: got %.0f mi, expected 1500-2500", dist)
 	}
 
-	if len(route) < 3 {
-		t.Fatalf("expected at least 3 hops, got %d", len(route))
+	if len(route) < 4 {
+		t.Fatalf("expected at least 4 hops (mailbox + 3), got %d", len(route))
 	}
 
-	// First hop should be Boston
+	// First hop should be mailbox
+	if route[0].Type != models.HopTypeMailbox {
+		t.Fatalf("first hop type: got %q, expected %q", route[0].Type, models.HopTypeMailbox)
+	}
 	if route[0].City != "Boston, MA" {
-		t.Fatalf("first hop: got %s, expected Boston, MA", route[0].City)
+		t.Fatalf("mailbox hop city: got %s, expected Boston, MA", route[0].City)
+	}
+
+	// Second hop should be Boston (post office)
+	if route[1].City != "Boston, MA" {
+		t.Fatalf("second hop: got %s, expected Boston, MA", route[1].City)
 	}
 
 	// Last hop should be Denver
@@ -135,8 +144,11 @@ func TestRoute_SameCity(t *testing.T) {
 	if dist != 1 {
 		t.Fatalf("same city distance: got %.0f, expected 1", dist)
 	}
-	if len(route) != 1 {
-		t.Fatalf("same city hops: got %d, expected 1", len(route))
+	if len(route) != 2 {
+		t.Fatalf("same city hops: got %d, expected 2 (mailbox + delivery)", len(route))
+	}
+	if route[0].Type != models.HopTypeMailbox {
+		t.Fatalf("first hop type: got %q, expected %q", route[0].Type, models.HopTypeMailbox)
 	}
 }
 
@@ -172,6 +184,62 @@ func TestRoute_ShippingTierTiming(t *testing.T) {
 	}
 
 	t.Logf("Express: %v, Priority: %v, Standard: %v", expressAvg, priorityAvg, standardAvg)
+}
+
+func TestNextCarrierPickup_Standard(t *testing.T) {
+	loc := locNewYork
+	rng := rand.New(rand.NewSource(42))
+
+	// 6AM on a Monday — carrier should come later that day (11AM-3PM)
+	monday6am := time.Date(2026, 4, 6, 6, 0, 0, 0, loc) // Monday
+	pickup := NextCarrierPickup(monday6am, loc, false, rng)
+	pickupLocal := pickup.In(loc)
+	if pickupLocal.Hour() < 11 || pickupLocal.Hour() >= 15 {
+		t.Fatalf("expected pickup between 11AM-3PM, got %s", pickupLocal.Format("15:04"))
+	}
+	if pickupLocal.Day() != 6 {
+		t.Fatalf("expected same-day pickup, got day %d", pickupLocal.Day())
+	}
+
+	// 4PM on a Monday — carrier already passed, should be next day
+	monday4pm := time.Date(2026, 4, 6, 16, 0, 0, 0, loc)
+	pickup = NextCarrierPickup(monday4pm, loc, false, rng)
+	pickupLocal = pickup.In(loc)
+	if pickupLocal.Day() <= 6 {
+		t.Fatalf("expected next-day pickup, got day %d", pickupLocal.Day())
+	}
+	if pickupLocal.Hour() < 11 || pickupLocal.Hour() >= 15 {
+		t.Fatalf("expected pickup between 11AM-3PM, got %s", pickupLocal.Format("15:04"))
+	}
+
+	// Sunday — should advance to Monday
+	sunday := time.Date(2026, 4, 5, 10, 0, 0, 0, loc)
+	pickup = NextCarrierPickup(sunday, loc, false, rng)
+	pickupLocal = pickup.In(loc)
+	if pickupLocal.Weekday() == time.Sunday {
+		t.Fatal("carrier should not pick up on Sunday")
+	}
+}
+
+func TestNextCarrierPickup_Express(t *testing.T) {
+	loc := locNewYork
+	rng := rand.New(rand.NewSource(42))
+
+	// 10AM on a Monday — express courier should come within 1-2 hours
+	monday10am := time.Date(2026, 4, 6, 10, 0, 0, 0, loc)
+	pickup := NextCarrierPickup(monday10am, loc, true, rng)
+	delay := pickup.Sub(monday10am)
+	if delay < 60*time.Minute || delay > 120*time.Minute {
+		t.Fatalf("express pickup delay: got %v, expected 1-2 hours", delay)
+	}
+
+	// 11PM — outside courier hours, should be next morning
+	monday11pm := time.Date(2026, 4, 6, 23, 0, 0, 0, loc)
+	pickup = NextCarrierPickup(monday11pm, loc, true, rng)
+	pickupLocal := pickup.In(loc)
+	if pickupLocal.Hour() < 8 || pickupLocal.Hour() > 9 {
+		t.Fatalf("expected next-day pickup around 8AM, got %s", pickupLocal.Format("15:04"))
+	}
 }
 
 func TestSearchCities(t *testing.T) {

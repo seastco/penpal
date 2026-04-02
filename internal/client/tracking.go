@@ -106,17 +106,30 @@ func (m TrackingModel) View() tea.View {
 	content += "\n"
 	for _, hop := range m.tracking.Route {
 		var timeStr string
+		cityLabel := hop.City
+		if hop.Type == models.HopTypeMailbox {
+			cityLabel = hop.City + " (mailbox)"
+		}
 		node := mutedStyle.Render("○")
-		if now.After(hop.ETA) && isCurrentHop(m.tracking.Route, hop, now) {
+		if hop.Type == models.HopTypeMailbox {
+			if now.After(hop.ETA) && isCurrentHop(m.tracking.Route, hop, now) {
+				node = selectedStyle.Render("◇")
+			} else if now.After(hop.ETA) {
+				node = successStyle.Render("◆")
+			} else {
+				node = mutedStyle.Render("◇")
+			}
+		} else if now.After(hop.ETA) && isCurrentHop(m.tracking.Route, hop, now) {
 			node = selectedStyle.Render("◉")
-			timeStr = hop.ETA.Local().Format("01/02  15:04")
 		} else if now.After(hop.ETA) {
 			node = successStyle.Render("●")
+		}
+		if now.After(hop.ETA) {
 			timeStr = hop.ETA.Local().Format("01/02  15:04")
 		} else {
 			timeStr = hop.ETA.Local().Format("01/02 ~15:04")
 		}
-		content += fmt.Sprintf("%s %s  %s\n", node, mutedStyle.Render(timeStr), hop.City)
+		content += fmt.Sprintf("%s %s  %s\n", node, mutedStyle.Render(timeStr), cityLabel)
 	}
 
 	content += fmt.Sprintf("\n%s\n",
@@ -243,7 +256,11 @@ func (m InTransitModel) syncViewport() InTransitModel {
 			}
 			currentCity := "en route"
 			if currentHop < len(item.Route) {
-				currentCity = item.Route[currentHop].City
+				if item.Route[currentHop].Type == models.HopTypeMailbox {
+					currentCity = "awaiting pickup"
+				} else {
+					currentCity = item.Route[currentHop].City
+				}
 			}
 
 			est := item.ReleaseAt.Format("Jan 2")
