@@ -301,15 +301,17 @@ type ReadLetterModel struct {
 }
 
 func NewReadLetterModel(app *AppState, item protocol.InboxItem, body string) ReadLetterModel {
-	vp := viewport.New(viewport.WithWidth(contentWidth()), viewport.WithHeight(viewportHeight()-1))
+	w := contentWidth()
+	vp := viewport.New(viewport.WithWidth(w), viewport.WithHeight(viewportHeight()-1))
 	vp.SoftWrap = true
-	m := ReadLetterModel{app: app, item: item, body: body, viewport: vp, isContact: true}
+	wrapped := wordWrap(body, w)
+	m := ReadLetterModel{app: app, item: item, body: wrapped, viewport: vp, isContact: true}
 	if item.ReadAt == nil {
-		m.runes = []rune(body)
+		m.runes = []rune(wrapped)
 		m.typing = true
 		vp.SetContent("\n")
 	} else {
-		vp.SetContent("\n" + body)
+		vp.SetContent("\n" + wrapped)
 	}
 	m.viewport = vp
 	return m

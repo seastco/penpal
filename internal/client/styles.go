@@ -320,3 +320,32 @@ func viewportHeight() int {
 func screenBoxFixed() lipgloss.Style {
 	return screenBox().Height(boxHeight())
 }
+
+// wordWrap wraps text at word boundaries to fit within the given width.
+// Words longer than width are left intact for the viewport's SoftWrap fallback.
+func wordWrap(text string, width int) string {
+	var b strings.Builder
+	for i, line := range strings.Split(text, "\n") {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		if line == "" || lipgloss.Width(line) <= width {
+			b.WriteString(line)
+			continue
+		}
+		col := 0
+		for j, word := range strings.Fields(line) {
+			w := lipgloss.Width(word)
+			if j > 0 && col+1+w > width {
+				b.WriteByte('\n')
+				col = 0
+			} else if j > 0 {
+				b.WriteByte(' ')
+				col++
+			}
+			b.WriteString(word)
+			col += w
+		}
+	}
+	return b.String()
+}
