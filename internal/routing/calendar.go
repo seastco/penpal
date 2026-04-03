@@ -192,20 +192,12 @@ const (
 	carrierWindowStart = 11 // 11AM
 	carrierWindowEnd   = 15 // 3PM
 
-	// Express courier operating hours
-	courierOpStart = 8  // 8AM
-	courierOpEnd   = 18 // 6PM
 )
 
 // NextCarrierPickup returns when the mail carrier will pick up outgoing mail
-// from the sender's mailbox. Standard/Priority carriers run Mon-Sat between
-// 11AM-3PM. Express uses a dedicated courier that arrives within 1-2 hours.
-func NextCarrierPickup(sendTime time.Time, loc *time.Location, express bool, rng *rand.Rand) time.Time {
+// from the sender's mailbox. Carriers run Mon-Sat between 11AM-3PM.
+func NextCarrierPickup(sendTime time.Time, loc *time.Location, rng *rand.Rand) time.Time {
 	local := sendTime.In(loc)
-
-	if express {
-		return nextCourierPickup(local, loc, rng)
-	}
 
 	// Sample carrier arrival uniformly in [11AM, 3PM)
 	carrierMinutes := carrierWindowStart*60 + rng.Intn((carrierWindowEnd-carrierWindowStart)*60)
@@ -224,29 +216,6 @@ func NextCarrierPickup(sendTime time.Time, loc *time.Location, express bool, rng
 	carrierMinutes = carrierWindowStart*60 + rng.Intn((carrierWindowEnd-carrierWindowStart)*60)
 	carrierHour, carrierMin = carrierMinutes/60, carrierMinutes%60
 	return time.Date(next.Year(), next.Month(), next.Day(), carrierHour, carrierMin, 0, 0, loc)
-}
-
-// nextCourierPickup computes express courier pickup: 1-2 hours from send time
-// during operating hours (8AM-6PM), or early next morning if outside hours.
-func nextCourierPickup(local time.Time, loc *time.Location, rng *rand.Rand) time.Time {
-	delayMinutes := 60 + rng.Intn(60) // 1-2 hours
-
-	if IsBusinessDay(local, true) && local.Hour() >= courierOpStart && local.Hour() < courierOpEnd {
-		pickup := local.Add(time.Duration(delayMinutes) * time.Minute)
-		// If pickup still within operating hours, use it
-		if pickup.Hour() < courierOpEnd {
-			return pickup
-		}
-	}
-
-	// Outside operating hours — next operating day at 8AM + 0-60min
-	next := local
-	if local.Hour() >= courierOpStart {
-		next = next.AddDate(0, 0, 1)
-	}
-	next = advanceToBusinessDay(next, true)
-	startMinutes := rng.Intn(60)
-	return time.Date(next.Year(), next.Month(), next.Day(), courierOpStart, startMinutes, 0, 0, loc)
 }
 
 // NextProcessingStart returns when mail dropped at sendTime would start processing.

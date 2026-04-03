@@ -78,21 +78,16 @@ func TestRoute_BostonToDenver(t *testing.T) {
 		t.Fatalf("distance: got %.0f mi, expected 1500-2500", dist)
 	}
 
-	if len(route) < 4 {
-		t.Fatalf("expected at least 4 hops (mailbox + 3), got %d", len(route))
+	if len(route) < 3 {
+		t.Fatalf("expected at least 3 hops, got %d", len(route))
 	}
 
-	// First hop should be mailbox
-	if route[0].Type != models.HopTypeMailbox {
-		t.Fatalf("first hop type: got %q, expected %q", route[0].Type, models.HopTypeMailbox)
+	// Priority has no mailbox pickup — first hop is origin post office
+	if route[0].Type == models.HopTypeMailbox {
+		t.Fatalf("priority route should not have mailbox hop")
 	}
 	if route[0].City != "Boston, MA" {
-		t.Fatalf("mailbox hop city: got %s, expected Boston, MA", route[0].City)
-	}
-
-	// Second hop should be Boston (post office)
-	if route[1].City != "Boston, MA" {
-		t.Fatalf("second hop: got %s, expected Boston, MA", route[1].City)
+		t.Fatalf("first hop: got %s, expected Boston, MA", route[0].City)
 	}
 
 	// Last hop should be Denver
@@ -136,7 +131,8 @@ func TestRoute_SameCity(t *testing.T) {
 	cities := testCities()
 	g := NewGraph(cities)
 
-	route, dist, err := g.Route(0, 0, models.TierPriority, time.Now())
+	// Standard gets mailbox pickup
+	route, dist, err := g.Route(0, 0, models.TierStandard, time.Now())
 	if err != nil {
 		t.Fatalf("Route: %v", err)
 	}
@@ -149,6 +145,18 @@ func TestRoute_SameCity(t *testing.T) {
 	}
 	if route[0].Type != models.HopTypeMailbox {
 		t.Fatalf("first hop type: got %q, expected %q", route[0].Type, models.HopTypeMailbox)
+	}
+
+	// Priority has no mailbox — just delivery
+	routeP, _, err := g.Route(0, 0, models.TierPriority, time.Now())
+	if err != nil {
+		t.Fatalf("Route priority: %v", err)
+	}
+	if len(routeP) != 1 {
+		t.Fatalf("priority same city hops: got %d, expected 1 (delivery only)", len(routeP))
+	}
+	if routeP[0].Type == models.HopTypeMailbox {
+		t.Fatalf("priority same-city should not have mailbox hop")
 	}
 }
 
@@ -186,13 +194,13 @@ func TestRoute_ShippingTierTiming(t *testing.T) {
 	t.Logf("Express: %v, Priority: %v, Standard: %v", expressAvg, priorityAvg, standardAvg)
 }
 
-func TestNextCarrierPickup_Standard(t *testing.T) {
+func TestNextCarrierPickup(t *testing.T) {
 	loc := locNewYork
 	rng := rand.New(rand.NewSource(42))
 
 	// 6AM on a Monday — carrier should come later that day (11AM-3PM)
 	monday6am := time.Date(2026, 4, 6, 6, 0, 0, 0, loc) // Monday
-	pickup := NextCarrierPickup(monday6am, loc, false, rng)
+	pickup := NextCarrierPickup(monday6am, loc, rng)
 	pickupLocal := pickup.In(loc)
 	if pickupLocal.Hour() < 11 || pickupLocal.Hour() >= 15 {
 		t.Fatalf("expected pickup between 11AM-3PM, got %s", pickupLocal.Format("15:04"))
@@ -203,7 +211,7 @@ func TestNextCarrierPickup_Standard(t *testing.T) {
 
 	// 4PM on a Monday — carrier already passed, should be next day
 	monday4pm := time.Date(2026, 4, 6, 16, 0, 0, 0, loc)
-	pickup = NextCarrierPickup(monday4pm, loc, false, rng)
+	pickup = NextCarrierPickup(monday4pm, loc, rng)
 	pickupLocal = pickup.In(loc)
 	if pickupLocal.Day() <= 6 {
 		t.Fatalf("expected next-day pickup, got day %d", pickupLocal.Day())
@@ -214,31 +222,10 @@ func TestNextCarrierPickup_Standard(t *testing.T) {
 
 	// Sunday — should advance to Monday
 	sunday := time.Date(2026, 4, 5, 10, 0, 0, 0, loc)
-	pickup = NextCarrierPickup(sunday, loc, false, rng)
+	pickup = NextCarrierPickup(sunday, loc, rng)
 	pickupLocal = pickup.In(loc)
 	if pickupLocal.Weekday() == time.Sunday {
 		t.Fatal("carrier should not pick up on Sunday")
-	}
-}
-
-func TestNextCarrierPickup_Express(t *testing.T) {
-	loc := locNewYork
-	rng := rand.New(rand.NewSource(42))
-
-	// 10AM on a Monday — express courier should come within 1-2 hours
-	monday10am := time.Date(2026, 4, 6, 10, 0, 0, 0, loc)
-	pickup := NextCarrierPickup(monday10am, loc, true, rng)
-	delay := pickup.Sub(monday10am)
-	if delay < 60*time.Minute || delay > 120*time.Minute {
-		t.Fatalf("express pickup delay: got %v, expected 1-2 hours", delay)
-	}
-
-	// 11PM — outside courier hours, should be next morning
-	monday11pm := time.Date(2026, 4, 6, 23, 0, 0, 0, loc)
-	pickup = NextCarrierPickup(monday11pm, loc, true, rng)
-	pickupLocal := pickup.In(loc)
-	if pickupLocal.Hour() < 8 || pickupLocal.Hour() > 9 {
-		t.Fatalf("expected next-day pickup around 8AM, got %s", pickupLocal.Format("15:04"))
 	}
 }
 
