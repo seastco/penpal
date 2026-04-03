@@ -52,7 +52,7 @@ func (g *Graph) Route(fromIdx, toIdx int, tier models.ShippingTier, departureTim
 	// Priority/Express require dropping off at the post office.
 	hasMailbox := tier == models.TierStandard
 
-	var processingStart time.Time
+	var departAfter time.Time
 	var prefix []models.RouteHop
 
 	if hasMailbox {
@@ -65,19 +65,18 @@ func (g *Graph) Route(fromIdx, toIdx int, tier models.ShippingTier, departureTim
 		prefix = []models.RouteHop{mailboxHop}
 
 		// Push to after post office cutoff so NextProcessingStart yields next morning
-		postOfficeReturn := time.Date(
+		departAfter = time.Date(
 			carrierPickup.Year(), carrierPickup.Month(), carrierPickup.Day(),
 			postOfficeCutoff, 0, 0, 0, senderLoc,
 		)
-		processingStart = postOfficeReturn
 	} else {
 		// User drops off at post office; processing starts based on drop-off time
-		processingStart = departureTime
+		departAfter = departureTime
 	}
 
 	if fromIdx == toIdx {
 		// Same-city route: [mailbox →] facility processing → delivery
-		departure := NextProcessingStart(processingStart, senderLoc, express)
+		departure := NextProcessingStart(departAfter, senderLoc, express)
 		dwell := SampleDwellHours(tier.DwellMeanHours(), tier.DwellSigma(), rng)
 		ready := AddFacilityHours(departure, dwell, senderLoc, express)
 		eta := NextDeliverySlot(ready, senderLoc, express, rng)
@@ -94,7 +93,7 @@ func (g *Graph) Route(fromIdx, toIdx int, tier models.ShippingTier, departureTim
 	path = samplePath(path, maxHops)
 
 	intl := len(international) > 0 && international[0]
-	hops := g.scheduleHops(path, tier, processingStart, totalDist, intl)
+	hops := g.scheduleHops(path, tier, departAfter, totalDist, intl)
 
 	return append(prefix, hops...), totalDist, nil
 }

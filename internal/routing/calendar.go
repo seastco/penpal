@@ -188,10 +188,9 @@ const (
 	postOfficeCutoff = 17 // 5PM local time
 	processingStart  = 6  // 6AM local time
 
-	// Standard/Priority carrier window (Mon-Sat)
+	// Carrier window (Mon-Sat)
 	carrierWindowStart = 11 // 11AM
 	carrierWindowEnd   = 15 // 3PM
-
 )
 
 // NextCarrierPickup returns when the mail carrier will pick up outgoing mail
@@ -219,7 +218,7 @@ func NextCarrierPickup(sendTime time.Time, loc *time.Location, rng *rand.Rand) t
 }
 
 // NextProcessingStart returns when mail dropped at sendTime would start processing.
-// If before the cutoff on a business day, processing starts immediately.
+// If before the 5PM cutoff on a business day, processing starts at the send time.
 // Otherwise, it starts at 6AM on the next business day.
 func NextProcessingStart(sendTime time.Time, loc *time.Location, express bool) time.Time {
 	local := sendTime.In(loc)
@@ -399,10 +398,19 @@ func AddBusinessDays(start time.Time, days int, loc *time.Location, express bool
 }
 
 // EstimateDelivery computes the estimated delivery date for display.
+// Standard mail adds a day for mailbox pickup + overnight processing.
 func EstimateDelivery(dist float64, tier models.ShippingTier, sendTime time.Time, senderLoc *time.Location) time.Time {
 	express := tier == models.TierExpress
 	bizDays := EstimateBusinessDays(dist, tier)
-	departure := NextProcessingStart(sendTime, senderLoc, express)
+
+	departAfter := sendTime
+	if tier == models.TierStandard {
+		// Standard uses mailbox pickup: carrier comes 11AM-3PM, mail isn't
+		// processed until next business morning. Approximate as +1 business day.
+		bizDays++
+	}
+
+	departure := NextProcessingStart(departAfter, senderLoc, express)
 	delivery := AddBusinessDays(departure, bizDays, senderLoc, express)
 	local := delivery.In(senderLoc)
 	return time.Date(local.Year(), local.Month(), local.Day(), 12, 0, 0, 0, senderLoc)
