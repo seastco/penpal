@@ -882,7 +882,7 @@ func (m ComposeModel) shippingOptions() []shippingOpt {
 	if m.shippingInfo != nil && len(m.shippingInfo.Options) == len(opts) {
 		for i, info := range m.shippingInfo.Options {
 			if !info.EstDelivery.IsZero() {
-				opts[i].estDelivery = info.EstDelivery.Format("Mon Jan 2")
+				opts[i].estDelivery = info.EstDelivery.Local().Format("Mon Jan 2")
 			}
 		}
 	}
