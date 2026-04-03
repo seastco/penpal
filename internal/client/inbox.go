@@ -193,7 +193,7 @@ func (m InboxModel) syncViewport() InboxModel {
 			if i == m.cursor {
 				prefix = "* "
 			}
-			date := item.DeliveredAt.Format("Jan 2 3:04pm")
+			date := item.DeliveredAt.Local().Format("Jan 2 3:04pm")
 			isNew := item.ReadAt == nil
 			line := fmt.Sprintf("%-14s %s", item.SenderName, date)
 			if i == m.cursor {
@@ -422,8 +422,8 @@ func (m ReadLetterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 type contactAddedInReadMsg struct{}
 
 func (m ReadLetterModel) View() tea.View {
-	sentDate := m.item.SentAt.Format("Jan 2 3:04pm")
-	arrDate := m.item.DeliveredAt.Format("Jan 2 3:04pm")
+	sentDate := m.item.SentAt.Local().Format("Jan 2 3:04pm")
+	arrDate := m.item.DeliveredAt.Local().Format("Jan 2 3:04pm")
 
 	header := fmt.Sprintf("FROM: %s\nSENT: %s  ARRIVED: %s",
 		selectedStyle.Render(m.item.SenderName), sentDate, arrDate)

@@ -263,7 +263,7 @@ func (m InTransitModel) syncViewport() InTransitModel {
 				}
 			}
 
-			est := item.ReleaseAt.Format("Jan 2")
+			est := item.ReleaseAt.Local().Format("Jan 2")
 
 			line := fmt.Sprintf("%s%s: %s", prefix, dirLabel, item.PeerName)
 			if i == m.cursor {
@@ -462,7 +462,7 @@ func (m SentModel) syncViewport() SentModel {
 			if i == m.cursor {
 				prefix = "> "
 			}
-			date := item.SentAt.Format("Jan 2")
+			date := item.SentAt.Local().Format("Jan 2")
 			status := mutedStyle.Render(item.Status)
 			if item.Status == "delivered" {
 				status = successStyle.Render("delivered")
