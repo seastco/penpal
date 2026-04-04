@@ -567,7 +567,7 @@ func (c *Client) handleSendLetter(ctx context.Context, env protocol.Envelope) er
 	return nil
 }
 
-// awardWeeklyStamp awards 2 random common/state stamps if 7+ days since last weekly award.
+// awardWeeklyStamp awards 1 random common/state stamp if 7+ days since last weekly award.
 func (s *Server) awardWeeklyStamp(ctx context.Context, userID uuid.UUID, homeCity string) {
 	lastWeekly, err := s.db.GetLastWeeklyStampTime(ctx, userID)
 	if err != nil {
@@ -584,8 +584,8 @@ func (s *Server) awardWeeklyStamp(ctx context.Context, userID uuid.UUID, homeCit
 		pool = append(pool, homeState)
 	}
 
-	// Award 2 distinct random stamps
-	for _, pick := range pickNDistinct(pool, 2) {
+	// Award 1 random stamp
+	for _, pick := range pickNDistinct(pool, 1) {
 		stamp, err := s.db.CreateStamp(ctx, userID, pick, models.RarityCommon, models.EarnedWeekly)
 		if err != nil {
 			return
