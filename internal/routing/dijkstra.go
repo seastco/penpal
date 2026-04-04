@@ -56,19 +56,31 @@ func (g *Graph) Route(fromIdx, toIdx int, tier models.ShippingTier, departureTim
 	var prefix []models.RouteHop
 
 	if hasMailbox {
-		// Carrier picks up 11AM-3PM, finishes route, brings mail back to post
-		// office late afternoon. Mail is sorted that evening and goes out
-		// overnight, so processing effectively starts next business morning.
+		// Carrier picks up 11AM-3PM, finishes route, returns to post office,
+		// mail gets sorted. If sorted before the 6PM dispatch cutoff, it goes
+		// out same-day; otherwise it waits for next business morning.
 		carrierPickup := NextCarrierPickup(departureTime, senderLoc, rng)
 		mailboxHop := g.makeHop(fromIdx, departureTime.UTC())
 		mailboxHop.Type = models.HopTypeMailbox
 		prefix = []models.RouteHop{mailboxHop}
 
-		// Push to after post office cutoff so NextProcessingStart yields next morning
-		departAfter = time.Date(
-			carrierPickup.Year(), carrierPickup.Month(), carrierPickup.Day(),
-			postOfficeCutoff, 0, 0, 0, senderLoc,
-		)
+		// Carrier finishes route and returns 1-3 hours after pickup
+		returnDelay := 60 + rng.Intn(120)
+		carrierReturn := carrierPickup.Add(time.Duration(returnDelay) * time.Minute)
+		// Mail gets sorted: 30-90 minutes
+		sortDelay := 30 + rng.Intn(60)
+		sortReady := carrierReturn.Add(time.Duration(sortDelay) * time.Minute)
+
+		if sortReady.In(senderLoc).Hour() < eveningDispatchCutoff {
+			// Sorted before last dispatch — goes out same day
+			departAfter = sortReady
+		} else {
+			// Missed dispatch — waits for next business morning
+			departAfter = time.Date(
+				carrierPickup.Year(), carrierPickup.Month(), carrierPickup.Day(),
+				postOfficeCutoff, 0, 0, 0, senderLoc,
+			)
+		}
 	} else {
 		// User drops off at post office; processing starts based on drop-off time
 		departAfter = departureTime

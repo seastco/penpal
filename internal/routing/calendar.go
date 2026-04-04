@@ -185,8 +185,9 @@ func advanceToBusinessDay(t time.Time, express bool) time.Time {
 }
 
 const (
-	postOfficeCutoff = 17 // 5PM local time
-	processingStart  = 6  // 6AM local time
+	postOfficeCutoff      = 17 // 5PM local time
+	processingStart       = 6  // 6AM local time
+	eveningDispatchCutoff = 18 // 6PM — last outgoing dispatch
 
 	// Carrier window (Mon-Sat)
 	carrierWindowStart = 11 // 11AM
