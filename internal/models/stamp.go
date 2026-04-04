@@ -31,6 +31,10 @@ var ValidStampTypes = map[string]StampRarity{
 	"common:quill": RarityCommon, "common:blossom": RarityCommon, "common:sunflower": RarityCommon,
 	"common:butterfly": RarityCommon, "common:wave": RarityCommon, "common:moon": RarityCommon,
 	"common:bird": RarityCommon, "common:rainbow": RarityCommon, "common:clover": RarityCommon,
+	"common:envelope": RarityCommon, "common:seal": RarityCommon, "common:horn": RarityCommon,
+	"common:scroll": RarityCommon, "common:mushroom": RarityCommon, "common:leaf": RarityCommon,
+	"common:shell": RarityCommon, "common:pine": RarityCommon, "common:owl": RarityCommon,
+	"common:fox": RarityCommon, "common:bee": RarityCommon, "common:turtle": RarityCommon,
 	// States
 	"state:ak": RarityCommon, "state:al": RarityCommon, "state:ar": RarityCommon, "state:az": RarityCommon,
 	"state:ca": RarityCommon, "state:co": RarityCommon, "state:ct": RarityCommon, "state:de": RarityCommon,
