@@ -193,7 +193,8 @@ func (m InboxModel) syncViewport() InboxModel {
 			if i == m.cursor {
 				prefix = "* "
 			}
-			date := item.DeliveredAt.Local().Format("Jan 2 3:04pm")
+			t := item.DeliveredAt.Local()
+			date := fmt.Sprintf("%s %2d %s", t.Format("Jan"), t.Day(), t.Format("3:04pm"))
 			isNew := item.ReadAt == nil
 			line := fmt.Sprintf("%-14s %s", item.SenderName, date)
 			if i == m.cursor {

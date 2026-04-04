@@ -462,7 +462,8 @@ func (m SentModel) syncViewport() SentModel {
 			if i == m.cursor {
 				prefix = "> "
 			}
-			date := item.SentAt.Local().Format("Jan 2")
+			t := item.SentAt.Local()
+			date := fmt.Sprintf("%s %2d", t.Format("Jan"), t.Day())
 			status := mutedStyle.Render(item.Status)
 			if item.Status == "delivered" {
 				status = successStyle.Render("delivered")
