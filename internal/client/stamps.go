@@ -53,6 +53,18 @@ var stampEmoji = map[string]string{
 	"common:bird":        "🐦",
 	"common:rainbow":     "🌈",
 	"common:clover":      "🍀",
+	"common:envelope":    "📨",
+	"common:seal":        "🔖",
+	"common:horn":        "📯",
+	"common:scroll":      "📜",
+	"common:mushroom":    "🍄",
+	"common:leaf":        "🍂",
+	"common:shell":       "🐚",
+	"common:pine":        "🌲",
+	"common:owl":         "🦉",
+	"common:fox":         "🦊",
+	"common:bee":         "🐝",
+	"common:turtle":      "🐢",
 	"rare:cross_country": "🌎",
 	"rare:explorer":      "🧭",
 	"rare:penpal":        "💌",
@@ -97,6 +109,9 @@ var commonSlots = []string{
 	"common:flag", "common:heart", "common:star", "common:quill",
 	"common:blossom", "common:sunflower", "common:butterfly", "common:wave",
 	"common:moon", "common:bird", "common:rainbow", "common:clover",
+	"common:envelope", "common:seal", "common:horn", "common:scroll",
+	"common:mushroom", "common:leaf", "common:shell", "common:pine",
+	"common:owl", "common:fox", "common:bee", "common:turtle",
 }
 var rareSlots = []string{
 	"rare:cross_country", "rare:explorer", "rare:penpal", "rare:faithful", "rare:collector",
@@ -617,6 +632,30 @@ func commonDisplayName(key string) string {
 		return "Rainbow"
 	case "common:clover":
 		return "Clover"
+	case "common:envelope":
+		return "Envelope"
+	case "common:seal":
+		return "Wax Seal"
+	case "common:horn":
+		return "Post Horn"
+	case "common:scroll":
+		return "Scroll"
+	case "common:mushroom":
+		return "Mushroom"
+	case "common:leaf":
+		return "Leaf"
+	case "common:shell":
+		return "Shell"
+	case "common:pine":
+		return "Pine Tree"
+	case "common:owl":
+		return "Owl"
+	case "common:fox":
+		return "Fox"
+	case "common:bee":
+		return "Honeybee"
+	case "common:turtle":
+		return "Turtle"
 	default:
 		return key
 	}
