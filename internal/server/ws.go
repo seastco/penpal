@@ -38,6 +38,9 @@ var commonStampPool = []string{
 	"common:flag", "common:heart", "common:star", "common:quill",
 	"common:blossom", "common:sunflower", "common:butterfly", "common:wave",
 	"common:moon", "common:bird", "common:rainbow", "common:clover",
+	"common:envelope", "common:seal", "common:horn", "common:scroll",
+	"common:mushroom", "common:leaf", "common:shell", "common:pine",
+	"common:owl", "common:fox", "common:bee", "common:turtle",
 }
 
 // pickNDistinct returns n distinct random elements from pool using partial Fisher-Yates.
