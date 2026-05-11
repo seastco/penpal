@@ -10,7 +10,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.3
 	github.com/tyler-smith/go-bip39 v1.1.0
-	golang.org/x/crypto v0.50.0
+	golang.org/x/crypto v0.51.0
 	nhooyr.io/websocket v1.8.17
 )
 
@@ -30,5 +30,5 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/sys v0.44.0 // indirect
 )
