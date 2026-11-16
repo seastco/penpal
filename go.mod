@@ -1,16 +1,16 @@
 module github.com/seastco/penpal
 
-go 1.26.1
+go 1.26.7
 
 require (
 	charm.land/bubbles/v2 v2.2.1
 	charm.land/bubbletea/v2 v2.1.1
-	charm.land/lipgloss/v2 v2.0.6
+	charm.land/lipgloss/v2 v2.1.0
 	filippo.io/edwards25519 v1.2.0
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.3
 	github.com/tyler-smith/go-bip39 v1.1.0
-	golang.org/x/crypto v0.58.0
+	golang.org/x/crypto v0.59.0
 	nhooyr.io/websocket v1.8.17
 )
 
@@ -30,5 +30,5 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/xo/terminfo v1.0.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
 )
